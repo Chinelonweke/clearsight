@@ -1,0 +1,77 @@
+name: ClearSight CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Lint + Test
+    runs-on: ubuntu-latest
+
+    services:
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install Poetry
+        run: pip install poetry==1.8.3
+
+      - name: Install dependencies
+        run: poetry install --no-interaction --no-ansi
+
+      - name: Run linter (ruff)
+        run: poetry run ruff check app/
+
+      - name: Run type checker (mypy) — warnings only
+        run: poetry run mypy app/ --ignore-missing-imports || true
+
+      - name: Run tests
+        env:
+          DATABASE_URL: "postgresql+asyncpg://postgres:postgres@localhost:5432/clearsight_test"
+          REDIS_URL: "redis://localhost:6379"
+          GROQ_API_KEY: "test_key_ci"
+          JWT_SECRET_KEY: "test-secret-key-for-ci-only-32chars!!"
+          ADMIN_PASSWORD: "testpassword"
+        run: poetry run pytest tests/ -v --cov=app --cov-report=term-missing
+
+  docker:
+    name: Docker Build Check
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -f docker/Dockerfile -t clearsight:ci .
+
+      - name: Verify image starts
+        run: |
+          docker run -d --name test_container \
+            -e JWT_SECRET_KEY="test-secret-32chars!!" \
+            -e ADMIN_PASSWORD="test" \
+            -e DATABASE_URL="postgresql+asyncpg://x:x@localhost/x" \
+            -e GROQ_API_KEY="test" \
+            -e REDIS_URL="redis://localhost:6379" \
+            -p 8888:8000 clearsight:ci
+          sleep 10
+          docker logs test_container
+          docker rm -f test_container

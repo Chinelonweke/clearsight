@@ -205,3 +205,25 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+.env
+
+# Secrets and sensitive files
+.env
+*.pem
+*.key
+
+# Large model files
+*.onnx
+*.onnx.json
+
+# Runtime data
+data/uploads/
+logs/
+data/metrics.db
+
+# Python
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/

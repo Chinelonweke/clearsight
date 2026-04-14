@@ -1,0 +1,544 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ClearSight — Staff Dashboard</title>
+<style>
+:root{--teal-900:#0a2e2a;--teal-800:#0d3b35;--teal-700:#115c52;--teal-600:#167a6d;--teal-400:#22c5b0;--teal-100:#d0f5f0;--teal-50:#eafaf8;--cream:#faf8f4;--warm-100:#f5f0e8;--warm-200:#e8dfc9;--text-dark:#0d2420;--text-mid:#2d5a52;--text-muted:#6b9490;--red-500:#dc2626;--red-100:#fee2e2;--amber-500:#d97706;--amber-100:#fef3c7;--green-500:#16a34a;--green-100:#dcfce7}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:var(--cream);color:var(--text-dark);min-height:100vh}
+header{background:var(--teal-900);padding:14px 28px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+.logo{display:flex;align-items:center;gap:12px}
+.logo-icon{width:34px;height:34px;background:var(--teal-400);border-radius:9px;display:flex;align-items:center;justify-content:center}
+.logo-icon svg{width:18px;height:18px;fill:var(--teal-900)}
+.logo-text{font-size:18px;color:#fff;font-weight:700}
+.logo-sub{font-size:11px;color:var(--teal-400);letter-spacing:.5px;text-transform:uppercase}
+.header-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.date-badge{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);padding:6px 14px;border-radius:20px;font-size:12px;color:var(--teal-400)}
+.user-badge{background:var(--teal-700);border:1px solid var(--teal-600);padding:6px 14px;border-radius:20px;font-size:12px;color:#fff;font-weight:600;display:flex;align-items:center;gap:6px}
+.user-badge svg{width:13px;height:13px;fill:var(--teal-300)}
+.btn-header{padding:7px 16px;border-radius:10px;font-size:12px;font-weight:600;cursor:pointer;border:none;transition:all .2s}
+.refresh-btn{background:var(--teal-50);border:1.5px solid var(--teal-100);color:var(--teal-700)}
+.refresh-btn:hover{background:var(--teal-100)}
+.logout-btn{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#fff}
+.logout-btn:hover{background:rgba(255,255,255,.15)}
+.main{max-width:1200px;margin:0 auto;padding:24px 20px}
+
+/* Login screen */
+.login-screen{display:flex;align-items:center;justify-content:center;min-height:80vh}
+.login-card{background:#fff;border-radius:20px;padding:40px;width:100%;max-width:400px;box-shadow:0 8px 32px rgba(10,46,42,.12)}
+.login-card h2{font-size:20px;font-weight:700;color:var(--text-dark);margin-bottom:6px}
+.login-card p{font-size:13px;color:var(--text-muted);margin-bottom:28px}
+.login-tabs{display:flex;gap:8px;margin-bottom:24px}
+.login-tab{flex:1;padding:9px;border-radius:10px;border:1.5px solid var(--warm-200);background:transparent;font-size:13px;font-weight:600;cursor:pointer;color:var(--text-muted);transition:all .2s}
+.login-tab.active{background:var(--teal-700);border-color:var(--teal-700);color:#fff}
+.form-group{margin-bottom:16px}
+.form-group label{display:block;font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.form-group input{width:100%;padding:11px 14px;border:1.5px solid var(--warm-200);border-radius:10px;font-size:14px;font-family:system-ui,sans-serif;color:var(--text-dark);background:var(--cream);outline:none;transition:border-color .2s}
+.form-group input:focus{border-color:var(--teal-400);background:#fff}
+.login-btn{width:100%;padding:12px;background:var(--teal-700);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;transition:all .2s;margin-top:8px}
+.login-btn:hover{background:var(--teal-600)}
+.login-error{background:var(--red-100);color:#991b1b;border-radius:8px;padding:10px 14px;font-size:13px;margin-top:12px;display:none}
+
+/* Stats */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
+.stat-card{background:#fff;border-radius:14px;padding:18px;box-shadow:0 1px 4px rgba(10,46,42,.08)}
+.stat-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);margin-bottom:8px}
+.stat-value{font-size:26px;font-weight:700;color:var(--text-dark)}
+.stat-sub{font-size:11px;color:var(--text-muted);margin-top:4px}
+.stat-card.emergency .stat-value{color:var(--red-500)}
+.stat-card.urgent .stat-value{color:var(--amber-500)}
+.stat-card.routine .stat-value{color:var(--green-500)}
+.stat-card.seen .stat-value{color:var(--teal-600)}
+
+/* Doctor workload */
+.doctor-workload{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:24px}
+.workload-card{background:#fff;border-radius:14px;padding:18px;box-shadow:0 1px 4px rgba(10,46,42,.08)}
+.workload-title{font-size:13px;font-weight:700;color:var(--text-dark);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.workload-title .badge{background:var(--teal-50);color:var(--teal-700);border-radius:20px;padding:2px 10px;font-size:11px;border:1px solid var(--teal-100)}
+.workload-title .you-badge{background:var(--amber-100);color:#92400e;border-radius:20px;padding:2px 8px;font-size:11px}
+.wl-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.wl-label{font-size:12px;color:var(--text-muted);width:58px;flex-shrink:0}
+.wl-bar{flex:1;height:6px;background:var(--warm-100);border-radius:3px;overflow:hidden}
+.wl-fill{height:100%;border-radius:3px;transition:width .5s}
+.wl-fill.total{background:var(--teal-600)}
+.wl-fill.seen{background:var(--green-500)}
+.wl-count{font-size:12px;font-weight:700;color:var(--text-dark);width:20px;text-align:right}
+
+/* Table */
+.appointments-panel{background:#fff;border-radius:14px;box-shadow:0 1px 4px rgba(10,46,42,.08);overflow:hidden;margin-bottom:24px}
+.panel-header{padding:14px 20px;border-bottom:1px solid var(--warm-100);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+.panel-header h2{font-size:15px;font-weight:700;color:var(--text-dark)}
+.filter-tabs{display:flex;gap:6px;flex-wrap:wrap}
+.filter-tab{padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid var(--warm-200);background:transparent;color:var(--text-muted);transition:all .2s}
+.filter-tab.active{background:var(--teal-700);border-color:var(--teal-700);color:#fff}
+.appt-table{width:100%;border-collapse:collapse}
+.appt-table th{padding:9px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);background:var(--cream);border-bottom:1px solid var(--warm-100)}
+.appt-table td{padding:12px 14px;border-bottom:1px solid var(--warm-100);font-size:13px;vertical-align:middle}
+.appt-table tr:last-child td{border-bottom:none}
+.appt-table tr:hover td{background:var(--teal-50)}
+.urgency-pill{padding:3px 9px;border-radius:20px;font-size:10px;font-weight:700;text-transform:uppercase;display:inline-block}
+.urgency-pill.emergency{background:var(--red-100);color:#991b1b}
+.urgency-pill.urgent{background:var(--amber-100);color:#92400e}
+.urgency-pill.routine{background:var(--green-100);color:#14532d}
+.score-bar-sm{height:4px;background:var(--warm-100);border-radius:2px;width:46px;overflow:hidden;display:inline-block;vertical-align:middle;margin-left:5px}
+.score-fill-sm{height:100%;border-radius:2px}
+.score-fill-sm.emergency{background:var(--red-500)}
+.score-fill-sm.urgent{background:var(--amber-500)}
+.score-fill-sm.routine{background:var(--green-500)}
+.patient-name{font-weight:600;color:var(--text-dark)}
+.patient-phone{font-size:11px;color:var(--text-muted);margin-top:1px}
+.doctor-cell{font-size:12px;font-weight:600;color:var(--teal-700)}
+.doctor-cell.mine{color:var(--amber-500)}
+.slot-time{font-weight:600;color:var(--teal-700);font-size:14px}
+.slot-date{font-size:11px;color:var(--text-muted);margin-top:1px}
+.complaint-text{max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-mid)}
+.btn-seen{background:var(--teal-50);border:1.5px solid var(--teal-300);color:var(--teal-700);padding:5px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;transition:all .2s;white-space:nowrap}
+.btn-seen:hover{background:var(--teal-100);transform:scale(1.02)}
+.btn-seen:disabled{opacity:.5;cursor:not-allowed}
+.btn-seen.not-mine{background:var(--warm-100);border-color:var(--warm-200);color:var(--text-muted);cursor:not-allowed}
+.seen-badge{color:var(--green-500);font-weight:700;font-size:12px}
+.empty-state{text-align:center;padding:44px 20px;color:var(--text-muted)}
+.empty-state svg{width:36px;height:36px;fill:var(--warm-200);margin:0 auto 10px;display:block}
+.loading{text-align:center;padding:36px;color:var(--text-muted);font-size:14px}
+
+@media(max-width:900px){
+  .stats-row{grid-template-columns:repeat(2,1fr)}
+  .doctor-workload{grid-template-columns:1fr}
+  .appt-table th:nth-child(3),.appt-table td:nth-child(3){display:none}
+}
+</style>
+</head>
+<body>
+
+<!-- Login Screen -->
+<div class="login-screen" id="login-screen">
+  <div class="login-card">
+    <h2>ClearSight Staff</h2>
+    <p>Sign in to access your patient dashboard</p>
+    <div class="login-tabs">
+      <button class="login-tab active" onclick="setLoginRole('doctor', this)">Doctor Login</button>
+      <button class="login-tab" onclick="setLoginRole('admin', this)">Admin Login</button>
+    </div>
+    <div class="form-group">
+      <label id="username-label">Doctor Username</label>
+      <input type="text" id="login-username" placeholder="e.g. dr.ijeoma" autocomplete="username">
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <input type="password" id="login-password" placeholder="Enter your password" autocomplete="current-password">
+    </div>
+    <button class="login-btn" onclick="doLogin()">Sign In</button>
+    <div class="login-error" id="login-error"></div>
+  </div>
+</div>
+
+<!-- Dashboard -->
+<div id="dashboard-screen" style="display:none">
+  <header>
+    <div class="logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+      </div>
+      <div>
+        <div class="logo-text">ClearSight</div>
+        <div class="logo-sub">Staff Dashboard</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="date-badge" id="date-display"></div>
+      <div class="user-badge" id="user-badge">
+        <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+        <span id="user-label">Loading...</span>
+      </div>
+      <button class="btn-header refresh-btn" onclick="loadData()">↻ Refresh</button>
+      <button class="btn-header logout-btn" onclick="doLogout()">Sign Out</button>
+    </div>
+  </header>
+
+  <div class="main">
+
+    <!-- Stats -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-label">My Patients Today</div>
+        <div class="stat-value" id="stat-total">—</div>
+        <div class="stat-sub">scheduled</div>
+      </div>
+      <div class="stat-card emergency">
+        <div class="stat-label">Emergency</div>
+        <div class="stat-value" id="stat-emergency">—</div>
+        <div class="stat-sub">immediate</div>
+      </div>
+      <div class="stat-card urgent">
+        <div class="stat-label">Urgent</div>
+        <div class="stat-value" id="stat-urgent">—</div>
+        <div class="stat-sub">seen today</div>
+      </div>
+      <div class="stat-card seen">
+        <div class="stat-label">Seen</div>
+        <div class="stat-value" id="stat-seen">—</div>
+        <div class="stat-sub">completed</div>
+      </div>
+    </div>
+
+    <!-- Doctor workload (admin only) -->
+    <div class="doctor-workload" id="doctor-workload" style="display:none"></div>
+
+    <!-- Appointments -->
+    <div class="appointments-panel">
+      <div class="panel-header">
+        <h2 id="panel-title">Today's Patients</h2>
+        <div class="filter-tabs">
+          <button class="filter-tab active" onclick="filterAppts('pending', this)">Pending</button>
+          <button class="filter-tab" onclick="filterAppts('emergency', this)">Emergency</button>
+          <button class="filter-tab" onclick="filterAppts('urgent', this)">Urgent</button>
+          <button class="filter-tab" onclick="filterAppts('routine', this)">Routine</button>
+          <button class="filter-tab" onclick="filterAppts('seen', this)">Seen ✓</button>
+          <button class="filter-tab" onclick="filterAppts('all', this)">All</button>
+        </div>
+      </div>
+      <div id="appt-container">
+        <div class="loading">Loading appointments...</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────────
+let allAppts = [];
+let currentFilter = 'pending';
+let session = {
+  token: localStorage.getItem('cs_token'),
+  role: localStorage.getItem('cs_role'),
+  doctorId: localStorage.getItem('cs_doctor_id'),
+  doctorName: localStorage.getItem('cs_doctor_name'),
+  username: localStorage.getItem('cs_username'),
+};
+let loginRole = 'doctor';
+
+// ── Init ───────────────────────────────────────────────────────────────────────
+document.getElementById('date-display') && (
+  document.getElementById('date-display').textContent = new Date().toLocaleDateString('en-NG', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+  })
+);
+
+// Handle enter key on login
+document.getElementById('login-password').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doLogin();
+});
+
+// Auto-load if already logged in
+if (session.token) {
+  showDashboard();
+  loadData();
+}
+
+// ── Login ──────────────────────────────────────────────────────────────────────
+function setLoginRole(role, btn) {
+  loginRole = role;
+  document.querySelectorAll('.login-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('username-label').textContent =
+    role === 'admin' ? 'Admin Username' : 'Doctor Username';
+  document.getElementById('login-username').placeholder =
+    role === 'admin' ? 'admin username' : 'e.g. dr.ijeoma';
+}
+
+async function doLogin() {
+  const username = document.getElementById('login-username').value.trim();
+  const password = document.getElementById('login-password').value;
+  const errEl = document.getElementById('login-error');
+  errEl.style.display = 'none';
+
+  if (!username || !password) {
+    showLoginError('Please enter both username and password.');
+    return;
+  }
+
+  const endpoint = loginRole === 'admin'
+    ? '/api/v1/auth/login'
+    : '/api/v1/auth/doctor-login';
+
+  try {
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+
+    if (!res.ok) {
+      showLoginError('Invalid username or password.');
+      return;
+    }
+
+    const data = await res.json();
+    session.token = data.access_token;
+    session.role = data.role || (loginRole === 'admin' ? 'admin' : 'doctor');
+    session.doctorId = data.doctor_id || null;
+    session.doctorName = data.doctor_name || username;
+    session.username = username;
+
+    localStorage.setItem('cs_token', session.token);
+    localStorage.setItem('cs_role', session.role);
+    localStorage.setItem('cs_doctor_id', session.doctorId || '');
+    localStorage.setItem('cs_doctor_name', session.doctorName || '');
+    localStorage.setItem('cs_username', session.username);
+
+    showDashboard();
+    loadData();
+  } catch (e) {
+    showLoginError('Connection error. Is the server running?');
+  }
+}
+
+function showLoginError(msg) {
+  const el = document.getElementById('login-error');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+function showDashboard() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('dashboard-screen').style.display = 'block';
+
+  const label = session.role === 'admin'
+    ? 'Admin'
+    : session.doctorName || session.username;
+  document.getElementById('user-label').textContent = label;
+
+  document.getElementById('stat-total').closest('.stat-card')
+    .querySelector('.stat-label').textContent =
+    session.role === 'admin' ? "Today's Appointments" : "My Patients Today";
+}
+
+function doLogout() {
+  ['cs_token','cs_role','cs_doctor_id','cs_doctor_name','cs_username'].forEach(k =>
+    localStorage.removeItem(k)
+  );
+  session = { token:null, role:null, doctorId:null, doctorName:null, username:null };
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('dashboard-screen').style.display = 'none';
+  document.getElementById('login-username').value = '';
+  document.getElementById('login-password').value = '';
+  document.getElementById('login-error').style.display = 'none';
+}
+
+// ── Load data ──────────────────────────────────────────────────────────────────
+async function loadData() {
+  try {
+    const res = await fetch('/api/v1/admin/appointments/today', {
+      headers: { 'Authorization': `Bearer ${session.token}` }
+    });
+
+    if (res.status === 401) {
+      doLogout();
+      return;
+    }
+
+    const data = await res.json();
+    allAppts = data.appointments || [];
+    renderStats();
+    if (session.role === 'admin') renderWorkload();
+    renderTable(currentFilter);
+  } catch (err) {
+    document.getElementById('appt-container').innerHTML =
+      '<div class="loading">Failed to load. Check server connection.</div>';
+  }
+}
+
+// ── Stats ──────────────────────────────────────────────────────────────────────
+function renderStats() {
+  const pending = allAppts.filter(a => a.status !== 'completed');
+  document.getElementById('stat-total').textContent = pending.length;
+  document.getElementById('stat-emergency').textContent =
+    pending.filter(a => a.urgency_level === 'emergency').length;
+  document.getElementById('stat-urgent').textContent =
+    pending.filter(a => a.urgency_level === 'urgent').length;
+  document.getElementById('stat-seen').textContent =
+    allAppts.filter(a => a.status === 'completed').length;
+}
+
+// ── Doctor workload (admin only) ───────────────────────────────────────────────
+function renderWorkload() {
+  const wl = {};
+  allAppts.forEach(a => {
+    const name = a.doctor_name || 'Unassigned';
+    if (!wl[name]) wl[name] = { total: 0, seen: 0, doctor_id: a.doctor_id };
+    wl[name].total++;
+    if (a.status === 'completed') wl[name].seen++;
+  });
+
+  const names = Object.keys(wl);
+  if (!names.length) return;
+
+  const max = Math.max(...names.map(n => wl[n].total), 1);
+  const wrap = document.getElementById('doctor-workload');
+  wrap.style.display = 'grid';
+
+  wrap.innerHTML = names.map(name => `
+    <div class="workload-card">
+      <div class="workload-title">
+        ${esc(name)}
+        <span class="badge">${wl[name].total} patients</span>
+      </div>
+      <div class="wl-row">
+        <div class="wl-label">Scheduled</div>
+        <div class="wl-bar"><div class="wl-fill total" style="width:${(wl[name].total/max)*100}%"></div></div>
+        <div class="wl-count">${wl[name].total}</div>
+      </div>
+      <div class="wl-row">
+        <div class="wl-label" style="color:var(--green-500)">Seen</div>
+        <div class="wl-bar"><div class="wl-fill seen" style="width:${(wl[name].seen/max)*100}%"></div></div>
+        <div class="wl-count" style="color:var(--green-500)">${wl[name].seen}</div>
+      </div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:8px">
+        ${wl[name].total - wl[name].seen} remaining
+      </div>
+    </div>
+  `).join('');
+}
+
+// ── Table ──────────────────────────────────────────────────────────────────────
+function renderTable(filter) {
+  let filtered;
+  if (filter === 'seen') {
+    filtered = allAppts.filter(a => a.status === 'completed');
+  } else if (filter === 'pending') {
+    filtered = allAppts.filter(a => a.status !== 'completed');
+  } else if (filter === 'all') {
+    filtered = allAppts;
+  } else {
+    filtered = allAppts.filter(a => a.urgency_level === filter && a.status !== 'completed');
+  }
+
+  if (!filtered.length) {
+    document.getElementById('appt-container').innerHTML = `
+      <div class="empty-state">
+        <svg viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/></svg>
+        <p>No ${filter === 'pending' ? 'pending' : filter === 'seen' ? 'seen' : filter} appointments.</p>
+      </div>`;
+    return;
+  }
+
+  const showDoctorCol = session.role === 'admin';
+
+  const rows = filtered.map(a => {
+    const level = (a.urgency_level || 'routine').toLowerCase();
+    const score = a.urgency_score || 1;
+    const slotDate = a.slot_time ? new Date(a.slot_time) : null;
+    const timeStr = slotDate
+      ? slotDate.toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' })
+      : '—';
+    const dateStr = slotDate
+      ? slotDate.toLocaleDateString('en-NG', { weekday: 'short', day: 'numeric', month: 'short' })
+      : '';
+
+    // Determine if this doctor can mark this patient seen
+    const isMyPatient = session.role === 'admin' ||
+      (session.doctorId && a.doctor_id === session.doctorId);
+
+    let seenCell;
+    if (a.status === 'completed') {
+      seenCell = '<span class="seen-badge">✓ Seen</span>';
+    } else if (isMyPatient) {
+      seenCell = `<button class="btn-seen" onclick="markSeen('${a.appointment_id}', this)" title="Mark patient as seen">
+        ✓ Mark Seen
+      </button>`;
+    } else {
+      seenCell = `<button class="btn-seen not-mine" disabled title="This patient is assigned to another doctor">
+        Not your patient
+      </button>`;
+    }
+
+    const doctorCell = showDoctorCol
+      ? `<td><div class="doctor-cell ${a.doctor_id === session.doctorId ? 'mine' : ''}">${esc(a.doctor_name || 'Unassigned')}</div></td>`
+      : '';
+
+    return `<tr>
+      <td>
+        <div class="patient-name">${esc(a.patient_name || 'Walk-in Patient')}</div>
+        <div class="patient-phone">${esc(a.patient_phone || '—')}</div>
+      </td>
+      <td>
+        <span class="urgency-pill ${level}">${level}</span>
+        <div style="margin-top:4px;display:flex;align-items:center;gap:4px">
+          <div class="score-bar-sm"><div class="score-fill-sm ${level}" style="width:${score*10}%"></div></div>
+          <span style="font-size:11px;color:var(--text-muted)">${score}/10</span>
+        </div>
+      </td>
+      <td class="complaint-text" title="${esc(a.chief_complaint || '')}">${esc(a.chief_complaint || '—')}</td>
+      ${doctorCell}
+      <td>
+        <div class="slot-time">${timeStr}</div>
+        <div class="slot-date">${dateStr}</div>
+      </td>
+      <td>${seenCell}</td>
+    </tr>`;
+  }).join('');
+
+  const doctorTh = showDoctorCol ? '<th>Doctor</th>' : '';
+
+  document.getElementById('appt-container').innerHTML = `
+    <table class="appt-table">
+      <thead>
+        <tr>
+          <th>Patient</th>
+          <th>Urgency</th>
+          <th>Chief Complaint</th>
+          ${doctorTh}
+          <th>Slot Time</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+// ── Filter ─────────────────────────────────────────────────────────────────────
+function filterAppts(filter, btn) {
+  currentFilter = filter;
+  document.querySelectorAll('.filter-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderTable(filter);
+}
+
+// ── Mark seen ──────────────────────────────────────────────────────────────────
+async function markSeen(appointmentId, btn) {
+  btn.textContent = '...';
+  btn.disabled = true;
+  try {
+    const res = await fetch(`/api/v1/admin/appointments/${appointmentId}/seen`, {
+      method: 'PATCH',
+      headers: { 'Authorization': `Bearer ${session.token}` }
+    });
+    if (res.ok) {
+      const appt = allAppts.find(a => a.appointment_id === appointmentId);
+      if (appt) appt.status = 'completed';
+      renderStats();
+      if (session.role === 'admin') renderWorkload();
+      renderTable(currentFilter);
+    } else {
+      btn.textContent = '✓ Mark Seen';
+      btn.disabled = false;
+    }
+  } catch {
+    btn.textContent = '✓ Mark Seen';
+    btn.disabled = false;
+  }
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
+function esc(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// Auto-refresh every 60s
+setInterval(loadData, 60000);
+</script>
+</body>
+</html>

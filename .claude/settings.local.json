@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \"import secrets; print\\('JWT:', secrets.token_hex\\(32\\)\\); print\\('PASS:', secrets.token_urlsafe\\(24\\)\\)\")",
+      "Bash(xargs wc:*)",
+      "Bash(python -m py_compile app/main.py app/config.py app/dependencies.py)",
+      "Bash(python -m flake8 app --count --select=E9,F63,F7,F82 --show-source --statistics)",
+      "Bash(python3 -c \"import ast; import pathlib; [print\\(f\\) for f in pathlib.Path\\('/c/Users/chinelo/clearsight/app'\\).glob\\('**/*.py'\\) if f.stat\\(\\).st_size > 0]\")",
+      "Bash(alembic revision:*)",
+      "Bash(alembic upgrade:*)",
+      "Bash(alembic check:*)"
+    ]
+  }
+}

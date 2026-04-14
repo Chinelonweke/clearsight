@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ClearSight — Eye Clinic Triage</title>
+<style>
+:root{--teal-900:#0a2e2a;--teal-800:#0d3b35;--teal-700:#115c52;--teal-600:#167a6d;--teal-500:#1a9b8a;--teal-400:#22c5b0;--teal-300:#5dd9c8;--teal-100:#d0f5f0;--teal-50:#eafaf8;--cream:#faf8f4;--warm-100:#f5f0e8;--warm-200:#e8dfc9;--text-dark:#0d2420;--text-mid:#2d5a52;--text-muted:#6b9490;--red-500:#dc2626;--red-100:#fee2e2;--amber-500:#d97706;--amber-100:#fef3c7;--green-500:#16a34a;--green-100:#dcfce7}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:var(--cream);color:var(--text-dark);min-height:100vh;display:flex;flex-direction:column}
+header{background:var(--teal-900);padding:14px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,.3)}
+.logo{display:flex;align-items:center;gap:12px}
+.logo-icon{width:36px;height:36px;background:var(--teal-400);border-radius:10px;display:flex;align-items:center;justify-content:center}
+.logo-icon svg{width:20px;height:20px;fill:var(--teal-900)}
+.logo-text{font-size:20px;color:#fff;font-weight:700;letter-spacing:-.3px}
+.logo-sub{font-size:11px;color:var(--teal-300);letter-spacing:.5px;text-transform:uppercase}
+.status-badge{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);padding:6px 12px;border-radius:20px;font-size:12px;color:var(--teal-300);font-weight:500}
+.status-dot{width:7px;height:7px;border-radius:50%;background:var(--teal-400);animation:pulse-dot 2s ease-in-out infinite}
+@keyframes pulse-dot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.6;transform:scale(.85)}}
+.conn-status{font-size:11px;padding:4px 10px;border-radius:20px;font-weight:500}
+.conn-status.connected{background:var(--green-100);color:#14532d}
+.conn-status.connecting{background:var(--amber-100);color:#92400e}
+.conn-status.disconnected{background:var(--red-100);color:#991b1b}
+.app-layout{flex:1;display:grid;grid-template-columns:1fr 340px;gap:20px;max-width:1200px;width:100%;margin:0 auto;padding:24px 20px;align-items:start}
+.chat-panel{display:flex;flex-direction:column;background:#fff;border-radius:16px;box-shadow:0 4px 16px rgba(10,46,42,.12);overflow:hidden;min-height:600px;max-height:calc(100vh - 120px)}
+.chat-header{background:var(--teal-800);padding:18px 24px;display:flex;align-items:center;gap:14px}
+.avatar{width:44px;height:44px;border-radius:50%;background:var(--teal-400);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.avatar svg{width:22px;height:22px;fill:var(--teal-900)}
+.avatar-info h3{font-size:16px;color:#fff;font-weight:600}
+.avatar-info p{font-size:12px;color:var(--teal-300);margin-top:2px}
+.thinking-indicator{display:none;align-items:center;gap:4px;margin-left:auto}
+.thinking-indicator.active{display:flex}
+.thinking-dot{width:5px;height:5px;border-radius:50%;background:var(--teal-300);animation:thinking 1.4s ease-in-out infinite}
+.thinking-dot:nth-child(2){animation-delay:.2s}
+.thinking-dot:nth-child(3){animation-delay:.4s}
+@keyframes thinking{0%,60%,100%{transform:translateY(0);opacity:.4}30%{transform:translateY(-6px);opacity:1}}
+.messages{flex:1;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:16px;scroll-behavior:smooth}
+.messages::-webkit-scrollbar{width:4px}
+.messages::-webkit-scrollbar-thumb{background:var(--warm-200);border-radius:4px}
+.message{display:flex;gap:10px;animation:msg-in .3s ease-out;max-width:82%}
+@keyframes msg-in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.message.assistant{align-self:flex-start}
+.message.user{align-self:flex-end;flex-direction:row-reverse}
+.msg-avatar{width:32px;height:32px;border-radius:50%;background:var(--teal-100);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px}
+.msg-avatar svg{width:16px;height:16px;fill:var(--teal-700)}
+.user .msg-avatar{background:var(--warm-100)}
+.user .msg-avatar svg{fill:var(--text-mid)}
+.msg-bubble{padding:12px 16px;border-radius:18px;font-size:14px;line-height:1.6;max-width:100%}
+.assistant .msg-bubble{background:var(--teal-50);border:1px solid var(--teal-100);color:var(--text-dark);border-top-left-radius:4px}
+.user .msg-bubble{background:var(--teal-700);color:#fff;border-top-right-radius:4px}
+.msg-time{font-size:10px;color:var(--text-muted);margin-top:4px;padding:0 4px}
+.user .msg-time{text-align:right}
+.input-area{border-top:1px solid var(--warm-100);padding:16px 20px;background:#fff}
+.input-row{display:flex;gap:8px;align-items:flex-end}
+.text-input{flex:1;border:1.5px solid var(--warm-200);border-radius:12px;padding:10px 14px;font-family:system-ui,sans-serif;font-size:14px;color:var(--text-dark);background:var(--cream);resize:none;outline:none;min-height:44px;max-height:120px;transition:border-color .2s;line-height:1.5}
+.text-input:focus{border-color:var(--teal-400);background:#fff}
+.text-input::placeholder{color:var(--text-muted)}
+.btn-icon{width:44px;height:44px;border-radius:12px;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0}
+.btn-send{background:var(--teal-600);color:#fff}
+.btn-send:hover{background:var(--teal-500)}
+.btn-send svg{width:18px;height:18px;fill:#fff}
+.btn-voice{background:var(--warm-100);border:1.5px solid var(--warm-200)}
+.btn-voice:hover{background:var(--teal-50);border-color:var(--teal-300)}
+.btn-voice.recording{background:var(--red-100);border-color:var(--red-500);animation:record-pulse 1s ease-in-out infinite}
+@keyframes record-pulse{0%,100%{box-shadow:0 0 0 0 rgba(220,38,38,.3)}50%{box-shadow:0 0 0 8px rgba(220,38,38,0)}}
+.btn-voice svg{width:18px;height:18px;fill:var(--text-mid)}
+.btn-voice.recording svg{fill:var(--red-500)}
+.btn-camera{background:var(--warm-100);border:1.5px solid var(--warm-200)}
+.btn-camera:hover{background:var(--teal-50);border-color:var(--teal-300)}
+.btn-camera svg{width:18px;height:18px;fill:var(--text-mid)}
+.input-hint{font-size:11px;color:var(--text-muted);margin-top:8px;text-align:center}
+.side-panel{display:flex;flex-direction:column;gap:16px}
+.card{background:#fff;border-radius:16px;box-shadow:0 1px 3px rgba(10,46,42,.08);overflow:hidden}
+.card-header{padding:14px 18px 12px;border-bottom:1px solid var(--warm-100);display:flex;align-items:center;gap:10px}
+.card-header h3{font-size:12px;font-weight:700;color:var(--text-dark);text-transform:uppercase;letter-spacing:.5px}
+.card-icon{width:28px;height:28px;border-radius:8px;background:var(--teal-50);display:flex;align-items:center;justify-content:center}
+.card-icon svg{width:14px;height:14px;fill:var(--teal-600)}
+.card-body{padding:14px 18px}
+.info-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--warm-100);font-size:13px}
+.info-row:last-child{border-bottom:none}
+.info-label{color:var(--text-muted);font-weight:500}
+.info-value{color:var(--text-dark);font-weight:600;font-family:monospace;font-size:11px}
+.stage-pill{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;text-transform:capitalize;background:var(--teal-50);color:var(--teal-700);border:1px solid var(--teal-100)}
+.urgency-display{display:none}
+.urgency-display.visible{display:block}
+.urgency-badge{display:flex;align-items:center;gap:12px;padding:14px;border-radius:10px;margin-bottom:10px}
+.urgency-badge.emergency{background:var(--red-100);border:1.5px solid #fca5a5}
+.urgency-badge.urgent{background:var(--amber-100);border:1.5px solid #fcd34d}
+.urgency-badge.routine{background:var(--green-100);border:1.5px solid #86efac}
+.urgency-icon{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.urgency-info h4{font-size:14px;font-weight:700;text-transform:capitalize}
+.emergency .urgency-info h4{color:#991b1b}
+.urgent .urgency-info h4{color:#92400e}
+.routine .urgency-info h4{color:#14532d}
+.urgency-info p{font-size:12px;color:var(--text-muted);margin-top:2px}
+.score-bar{height:6px;background:var(--warm-100);border-radius:3px;overflow:hidden;margin-bottom:10px}
+.score-fill{height:100%;border-radius:3px;transition:width 1s ease-out}
+.emergency .score-fill{background:var(--red-500)}
+.urgent .score-fill{background:var(--amber-500)}
+.routine .score-fill{background:var(--green-500)}
+.triage-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);margin-top:8px;margin-bottom:2px}
+.triage-detail{font-size:12px;color:var(--text-mid);line-height:1.6}
+.booking-display{display:none}
+.booking-display.visible{display:block}
+.booking-slot{background:var(--teal-50);border:1.5px solid var(--teal-100);border-radius:10px;padding:12px;text-align:center}
+.slot-time{font-size:15px;font-weight:700;color:var(--teal-700);margin-bottom:4px}
+.slot-label{font-size:12px;color:var(--text-muted)}
+.booking-id{font-size:11px;color:var(--text-muted);text-align:center;margin-top:8px;font-family:monospace}
+.empty-triage{text-align:center;padding:16px 0}
+.empty-triage .empty-icon{width:44px;height:44px;background:var(--warm-100);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 10px}
+.empty-triage .empty-icon svg{width:20px;height:20px;fill:var(--text-muted)}
+.empty-triage p{font-size:12px;color:var(--text-muted);line-height:1.5}
+.btn-new-session{width:100%;padding:11px;background:var(--teal-50);border:1.5px dashed var(--teal-300);border-radius:10px;color:var(--teal-700);font-family:system-ui,sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:10px}
+.btn-new-session:hover{background:var(--teal-100)}
+.btn-new-session svg{width:16px;height:16px;fill:var(--teal-600)}
+.transcript-area{max-height:100px;overflow-y:auto;font-size:12px;color:var(--text-mid);line-height:1.7}
+.alert-banner{display:none;background:var(--red-100);border:1.5px solid #fca5a5;border-radius:10px;padding:10px 14px;font-size:13px;color:#991b1b;font-weight:500;margin-bottom:10px}
+.alert-banner.visible{display:block}
+.camera-overlay{display:none;position:fixed;inset:0;background:rgba(10,46,42,.85);z-index:1000;align-items:center;justify-content:center;padding:20px}
+.camera-overlay.active{display:flex}
+.camera-modal{background:var(--teal-900);border-radius:16px;overflow:hidden;width:100%;max-width:460px}
+.camera-modal-header{padding:14px 18px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.1)}
+.camera-modal-header h3{color:#fff;font-size:15px;font-weight:500}
+.btn-close{background:none;border:none;color:var(--teal-300);cursor:pointer;font-size:20px;line-height:1}
+#camera-preview{width:100%;aspect-ratio:4/3;background:#000;display:block;object-fit:cover}
+.camera-controls{padding:14px 18px;display:flex;gap:10px;justify-content:center}
+.btn-capture{background:var(--teal-400);color:var(--teal-900);border:none;padding:11px 24px;border-radius:10px;font-family:system-ui,sans-serif;font-size:14px;font-weight:700;cursor:pointer;transition:all .2s}
+.btn-capture:hover{background:var(--teal-300)}
+.btn-cancel-cam{background:rgba(255,255,255,.08);color:#fff;border:1px solid rgba(255,255,255,.15);padding:11px 18px;border-radius:10px;font-family:system-ui,sans-serif;font-size:14px;cursor:pointer}
+@media(max-width:768px){.app-layout{grid-template-columns:1fr;padding:12px;gap:12px}.side-panel{order:-1}.chat-panel{min-height:420px;max-height:60vh}}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">
+    <div class="logo-icon"><svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg></div>
+    <div><div class="logo-text">ClearSight</div><div class="logo-sub">Eye Clinic Triage</div></div>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px">
+    <span class="conn-status connecting" id="conn-status">Connecting...</span>
+    <div class="status-badge"><div class="status-dot"></div>AI Triage Active</div>
+  </div>
+</header>
+<div class="app-layout">
+  <div class="chat-panel">
+    <div class="chat-header">
+      <div class="avatar"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg></div>
+      <div class="avatar-info"><h3>ClearSight Assistant</h3><p>AI-powered eye triage nurse</p></div>
+      <div class="thinking-indicator" id="thinking">
+        <div class="thinking-dot"></div><div class="thinking-dot"></div><div class="thinking-dot"></div>
+      </div>
+    </div>
+    <div class="messages" id="messages"></div>
+    <div class="input-area">
+      <div class="alert-banner" id="alert-banner"></div>
+      <div class="input-row">
+        <button class="btn-icon btn-voice" id="btn-voice" title="Hold to record voice">
+          <svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3zm-1 3a1 1 0 0 1 2 0v8a1 1 0 0 1-2 0V4zM7 11a5 5 0 0 0 10 0h2a7 7 0 0 1-6 6.92V21h-2v-3.08A7 7 0 0 1 5 11h2z"/></svg>
+        </button>
+        <button class="btn-icon btn-camera" id="btn-camera" title="Capture eye image">
+          <svg viewBox="0 0 24 24"><path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+        </button>
+        <textarea class="text-input" id="text-input" placeholder="Describe your eye symptoms..." rows="1"></textarea>
+        <button class="btn-icon btn-send" id="btn-send">
+          <svg viewBox="0 0 24 24"><path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/></svg>
+        </button>
+      </div>
+      <div class="input-hint">Press Enter to send &middot; Hold mic to record &middot; Camera to capture eye image</div>
+    </div>
+  </div>
+  <div class="side-panel">
+    <div class="card">
+      <div class="card-header"><div class="card-icon"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg></div><h3>Session</h3></div>
+      <div class="card-body">
+        <div class="info-row"><span class="info-label">Session ID</span><span class="info-value" id="session-id-display">—</span></div>
+        <div class="info-row"><span class="info-label">Stage</span><span class="stage-pill" id="stage-display">Starting</span></div>
+        <div class="info-row"><span class="info-label">Messages</span><span class="info-value" id="msg-count">0</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-icon"><svg viewBox="0 0 24 24"><path d="M12 2L1 21h22L12 2zm0 3.5L20.5 19h-17L12 5.5zM11 10v4h2v-4h-2zm0 6v2h2v-2h-2z"/></svg></div><h3>Triage Result</h3></div>
+      <div class="card-body">
+        <div class="urgency-display" id="urgency-display"></div>
+        <div class="empty-triage" id="empty-triage">
+          <div class="empty-icon"><svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg></div>
+          <p>Triage assessment will appear here after describing your symptoms.</p>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-icon"><svg viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/></svg></div><h3>Appointment</h3></div>
+      <div class="card-body">
+        <div class="booking-display" id="booking-display"></div>
+        <div class="empty-triage" id="empty-booking">
+          <div class="empty-icon"><svg viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/></svg></div>
+          <p>Appointment booking will appear here after triage.</p>
+        </div>
+        <button class="btn-new-session" id="btn-new-session" style="display:none">
+          <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>New Session
+        </button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-icon"><svg viewBox="0 0 24 24"><path d="M3 18h12v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg></div><h3>Transcript</h3></div>
+      <div class="card-body"><div class="transcript-area" id="transcript-area"><span style="color:var(--text-muted)">Voice transcripts appear here...</span></div></div>
+    </div>
+  </div>
+</div>
+<div class="camera-overlay" id="camera-overlay">
+  <div class="camera-modal">
+    <div class="camera-modal-header"><h3>Capture Eye Image</h3><button class="btn-close" id="btn-close-camera">&#x2715;</button></div>
+    <video id="camera-preview" autoplay playsinline muted></video>
+    <canvas id="camera-canvas" style="display:none"></canvas>
+    <div class="camera-controls">
+      <button class="btn-capture" id="btn-capture">&#128247; Capture</button>
+      <button class="btn-cancel-cam" id="btn-cancel-cam">Cancel</button>
+    </div>
+  </div>
+</div>
+<script>
+const state={sessionId:null,ws:null,mediaRecorder:null,audioChunks:[],isRecording:false,messageCount:0,cameraStream:null};
+const $=id=>document.getElementById(id);
+const messagesEl=$('messages'),textInput=$('text-input'),btnSend=$('btn-send'),btnVoice=$('btn-voice'),btnCamera=$('btn-camera'),thinking=$('thinking'),connStatus=$('conn-status'),alertBanner=$('alert-banner'),sessionIdDisplay=$('session-id-display'),stageDisplay=$('stage-display'),msgCountEl=$('msg-count'),urgencyDisplay=$('urgency-display'),emptyTriage=$('empty-triage'),bookingDisplay=$('booking-display'),emptyBooking=$('empty-booking'),transcriptArea=$('transcript-area'),btnNewSession=$('btn-new-session');
+function now(){return new Date().toLocaleTimeString('en-NG',{hour:'2-digit',minute:'2-digit'})}
+function setConnStatus(s,l){connStatus.className='conn-status '+s;connStatus.textContent=l}
+function setThinking(a){thinking.classList.toggle('active',a)}
+function showAlert(m){alertBanner.textContent=m;alertBanner.classList.add('visible');setTimeout(()=>alertBanner.classList.remove('visible'),5000)}
+function scrollToBottom(){setTimeout(()=>messagesEl.scrollTo({top:messagesEl.scrollHeight,behavior:'smooth'}),50)}
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>')}
+function addMessage(role,content,imgUrl=null){
+  state.messageCount++;msgCountEl.textContent=state.messageCount;
+  const isA=role==='assistant';
+  const wrap=document.createElement('div');wrap.className='message '+role;
+  const icon=isA?'<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>':'<svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>';
+  const msgHtml=imgUrl?`<div style="border-radius:12px;overflow:hidden;max-width:180px;border:1px solid var(--teal-100)"><img src="${imgUrl}" style="width:100%;display:block"></div>`:`<div class="msg-bubble">${esc(content)}</div>`;
+  wrap.innerHTML=`<div class="msg-avatar">${icon}</div><div>${msgHtml}<div class="msg-time">${now()}</div></div>`;
+  messagesEl.appendChild(wrap);scrollToBottom();
+}
+async function startSession(){
+  setConnStatus('connecting','Connecting...');
+  try{
+    const res=await fetch('/api/v1/session/start',{method:'POST'});
+    const data=await res.json();
+    state.sessionId=data.session_id;
+    sessionIdDisplay.textContent=data.session_id.substring(0,8)+'...';
+    connectWebSocket(data.session_id);
+  }catch(e){setConnStatus('disconnected','Failed');showAlert('Could not connect. Please refresh.')}
+}
+function connectWebSocket(id){
+  const proto=location.protocol==='https:'?'wss:':'ws:';
+  state.ws=new WebSocket(`${proto}//${location.host}/ws/conversation/${id}`);
+  state.ws.onopen=()=>{setConnStatus('connected','Connected');stageDisplay.textContent='Greeting'};
+  state.ws.onclose=()=>{setConnStatus('disconnected','Disconnected');stageDisplay.textContent='Ended'};
+  state.ws.onerror=()=>setConnStatus('disconnected','Error');
+  state.ws.onmessage=e=>handleMsg(JSON.parse(e.data));
+}
+function handleMsg(msg){
+  if(msg.type==='response'){setThinking(false);addMessage('assistant',msg.text);if(msg.audio&&msg.audio.length>10)playAudio(msg.audio);if(msg.is_emergency)showAlert('EMERGENCY: Flush eye with water NOW and go to hospital immediately!')}
+  else if(msg.type==='transcript'){updateTranscript(msg.text);addMessage('user',msg.text);setThinking(true)}
+  else if(msg.type==='triage_result'){renderTriage(msg.data);stageDisplay.textContent='Triage'}
+  else if(msg.type==='booking_result'){renderBooking(msg.data);stageDisplay.textContent='Booked';btnNewSession.style.display='flex'}
+  else if(msg.type==='error'){setThinking(false);showAlert(msg.message||'Error occurred')}
+  else if(msg.type==='session_closed'){stageDisplay.textContent='Complete';btnNewSession.style.display='flex'}
+}
+function sendText(t){if(!t.trim()||!state.ws||state.ws.readyState!==1)return;addMessage('user',t);setThinking(true);state.ws.send(JSON.stringify({type:'text',text:t}))}
+function sendAudio(blob){if(!state.ws||state.ws.readyState!==1)return;setThinking(true);const r=new FileReader();r.onloadend=()=>{state.ws.send(JSON.stringify({type:'audio',audio:r.result.split(',')[1],content_type:blob.type||'audio/webm'}))};r.readAsDataURL(blob)}
+function sendImage(dataUrl){if(!state.ws||state.ws.readyState!==1)return;const b64=dataUrl.split(',')[1];const mime=dataUrl.split(';')[0].split(':')[1];addMessage('user',null,dataUrl);setThinking(true);state.ws.send(JSON.stringify({type:'image',image:b64,mime}))}
+function playAudio(b64){try{const bin=atob(b64);const buf=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)buf[i]=bin.charCodeAt(i);const url=URL.createObjectURL(new Blob([buf],{type:'audio/wav'}));const a=new Audio(url);a.play().catch(()=>{});a.onended=()=>URL.revokeObjectURL(url)}catch(e){}}
+btnVoice.addEventListener('mousedown',startRec);btnVoice.addEventListener('touchstart',e=>{e.preventDefault();startRec()});
+btnVoice.addEventListener('mouseup',stopRec);btnVoice.addEventListener('touchend',e=>{e.preventDefault();stopRec()});
+btnVoice.addEventListener('mouseleave',()=>{if(state.isRecording)stopRec()});
+async function startRec(){if(state.isRecording)return;try{const stream=await navigator.mediaDevices.getUserMedia({audio:true});state.audioChunks=[];state.mediaRecorder=new MediaRecorder(stream);state.mediaRecorder.ondataavailable=e=>state.audioChunks.push(e.data);state.mediaRecorder.onstop=()=>{const blob=new Blob(state.audioChunks,{type:'audio/webm'});stream.getTracks().forEach(t=>t.stop());if(blob.size>1000)sendAudio(blob)};state.mediaRecorder.start();state.isRecording=true;btnVoice.classList.add('recording')}catch(e){showAlert('Microphone access denied.')}}
+function stopRec(){if(!state.isRecording||!state.mediaRecorder)return;state.mediaRecorder.stop();state.isRecording=false;btnVoice.classList.remove('recording')}
+btnCamera.addEventListener('click',openCam);$('btn-close-camera').addEventListener('click',closeCam);$('btn-cancel-cam').addEventListener('click',closeCam);$('btn-capture').addEventListener('click',capImg);
+async function openCam(){try{state.cameraStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'}});$('camera-preview').srcObject=state.cameraStream;$('camera-overlay').classList.add('active')}catch(e){showAlert('Camera access denied.')}}
+function closeCam(){if(state.cameraStream){state.cameraStream.getTracks().forEach(t=>t.stop());state.cameraStream=null}$('camera-overlay').classList.remove('active')}
+function capImg(){const v=$('camera-preview'),c=$('camera-canvas');c.width=v.videoWidth;c.height=v.videoHeight;c.getContext('2d').drawImage(v,0,0,c.width,c.height);const d=c.toDataURL('image/jpeg',.85);closeCam();sendImage(d)}
+btnSend.addEventListener('click',()=>{const t=textInput.value.trim();if(t){sendText(t);textInput.value='';textInput.style.height='auto'}});
+textInput.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();btnSend.click()}});
+textInput.addEventListener('input',()=>{textInput.style.height='auto';textInput.style.height=Math.min(textInput.scrollHeight,120)+'px'});
+function renderTriage(data){emptyTriage.style.display='none';urgencyDisplay.classList.add('visible');const lvl=(data.urgency_level||'routine').toLowerCase();const sc=data.urgency_score||1;const icons={emergency:'&#128680;',urgent:'&#9888;&#65039;',routine:'&#9989;'};const labels={emergency:'Immediate attention required',urgent:'Seen today',routine:'Schedule appointment'};urgencyDisplay.innerHTML=`<div class="urgency-badge ${lvl}"><div class="urgency-icon">${icons[lvl]||'&#9989;'}</div><div class="urgency-info"><h4>${lvl} &mdash; ${sc}/10</h4><p>${labels[lvl]||''}</p></div></div><div class="score-bar"><div class="score-fill ${lvl}" style="width:${sc*10}%"></div></div>${data.chief_complaint?`<div class="triage-label">Chief Complaint</div><div class="triage-detail">${esc(data.chief_complaint)}</div>`:''}`}
+function renderBooking(data){emptyBooking.style.display='none';bookingDisplay.classList.add('visible');bookingDisplay.innerHTML=`<div class="booking-slot"><div class="slot-time">&#128197; ${esc(data.slot_time||'Confirmed')}</div><div class="slot-label">${esc((data.urgency_level||'').toUpperCase())}</div></div>${data.patient_instruction?`<div class="triage-label" style="margin-top:10px">Instructions</div><div class="triage-detail">${esc(data.patient_instruction)}</div>`:''}<div class="booking-id">ID: ${esc(data.appointment_id||'—')}</div>`}
+function updateTranscript(t){if(transcriptArea.querySelector('span'))transcriptArea.innerHTML='';const d=document.createElement('div');d.style.cssText='padding:2px 0;border-bottom:1px solid var(--warm-100)';d.innerHTML=`<span style="color:var(--teal-600);font-weight:600">${now()}</span> ${esc(t)}`;transcriptArea.appendChild(d);transcriptArea.scrollTop=transcriptArea.scrollHeight}
+btnNewSession.addEventListener('click',()=>{if(state.ws)state.ws.close();messagesEl.innerHTML='';urgencyDisplay.classList.remove('visible');urgencyDisplay.innerHTML='';emptyTriage.style.display='';bookingDisplay.classList.remove('visible');bookingDisplay.innerHTML='';emptyBooking.style.display='';transcriptArea.innerHTML='<span style="color:var(--text-muted)">Voice transcripts appear here...</span>';btnNewSession.style.display='none';state.messageCount=0;msgCountEl.textContent='0';startSession()});
+setInterval(()=>{if(state.ws&&state.ws.readyState===1)state.ws.send(JSON.stringify({type:'ping'}))},30000);
+startSession();
+</script>
+</body>
+</html>

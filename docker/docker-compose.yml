@@ -1,0 +1,63 @@
+version: "3.9"
+
+# ── ClearSight — Docker Compose ───────────────────────────────────────────────
+# Local dev:    docker-compose up --build
+# Production:   APP_IMAGE=ecr-url/clearsight:sha docker-compose up -d api
+
+services:
+
+  api:
+    image: ${APP_IMAGE:-clearsight:latest}
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: clearsight_api
+    ports:
+      - "8000:8000"
+    env_file:
+      - ../.env
+    environment:
+      - CHROMA_HOST=chromadb
+      - CHROMA_PORT=8000
+    volumes:
+      - ../data:/app/data
+      - ../logs:/app/logs
+    depends_on:
+      chromadb:
+        condition: service_started
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 20s
+      retries: 3
+    networks:
+      - clearsight_net
+
+  chromadb:
+    image: chromadb/chroma:0.5.23
+    container_name: clearsight_chroma
+    ports:
+      - "8001:8000"
+    volumes:
+      - chroma_data:/chroma/chroma
+    environment:
+      - IS_PERSISTENT=TRUE
+      - ANONYMIZED_TELEMETRY=FALSE
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - clearsight_net
+
+volumes:
+  chroma_data:
+    driver: local
+
+networks:
+  clearsight_net:
+    driver: bridge
