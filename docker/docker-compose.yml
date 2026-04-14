@@ -1,6 +1,6 @@
-version: "3.9"
+﻿version: "3.9"
 
-# ── ClearSight — Docker Compose ───────────────────────────────────────────────
+# â”€â”€ ClearSight â€” Docker Compose â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # Local dev:    docker-compose up --build
 # Production:   APP_IMAGE=ecr-url/clearsight:sha docker-compose up -d api
 
@@ -36,7 +36,7 @@ services:
       - clearsight_net
 
   chromadb:
-    image: chromadb/chroma:0.5.23
+    image: chromadb/chroma:0.5.5
     container_name: clearsight_chroma
     ports:
       - "8001:8000"
