@@ -15,6 +15,13 @@ Run locally:
     uvicorn app.main:app --reload --port 8000
 """
 
+from app.services.analytics_service import init_metrics_db
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # ── Startup ──
+    init_metrics_db()  
+    
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -29,6 +36,8 @@ from app.core.middleware import ErrorHandlingMiddleware, RequestTimingMiddleware
 from app.db.neon import dispose_db, init_db
 from app.db.redis_client import close_redis, init_redis
 from app.rag.chroma_client import init_chroma
+from app.services.analytics_service import init_metrics_db
+
 
 logger = get_logger(__name__)
 
