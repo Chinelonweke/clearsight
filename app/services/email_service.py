@@ -255,7 +255,7 @@ async def send_booking_confirmation(
             "to": [patient_email],
             "subject": f"Appointment Confirmed — {slot_time} | {settings.clinic_name}",
             "html": html,
-            "reply_to": settings.clinic_phone,
+            "reply_to": settings.resend_from_email,
         }
 
         response = await resend.Emails.send_async(params)
