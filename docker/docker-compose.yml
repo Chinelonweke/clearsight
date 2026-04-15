@@ -1,6 +1,6 @@
-﻿version: "3.9"
+version: "3.9"
 
-# â”€â”€ ClearSight â€” Docker Compose â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── ClearSight — Docker Compose ───────────────────────────────────────────────
 # Local dev:    docker-compose up --build
 # Production:   APP_IMAGE=ecr-url/clearsight:sha docker-compose up -d api
 

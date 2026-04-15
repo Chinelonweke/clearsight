@@ -297,6 +297,19 @@ async def conversation_endpoint(ws: WebSocket, session_id: str):
                 )
                 logger.debug(f"Patient email captured | email={email_match.group(0)}")
 
+            # ── Extract patient name ───────────────────────────────────────────
+            import re as _re2
+            name_match = _re2.search(
+                r'(?:full\s*name\s*[:\-]?\s*)([A-Za-z]+(?:\s+[A-Za-z]+)+)',
+                user_input, _re2.IGNORECASE
+            )
+            if name_match:
+                extracted_name = name_match.group(1).strip().title()
+                await session_svc.update_metadata(
+                    session_id, {"patient_name": extracted_name}
+                )
+                logger.debug(f"Patient name captured | name={extracted_name}")
+
             # ── Get history + meta ─────────────────────────────────────────────
             history = await session_svc.get_history(session_id)
             meta = await session_svc.get_metadata(session_id)
