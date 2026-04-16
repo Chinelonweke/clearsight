@@ -1,206 +1,670 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ClearSight — Staff Dashboard</title>
-<style>
-:root{--teal-900:#0a2e2a;--teal-800:#0d3b35;--teal-700:#115c52;--teal-600:#167a6d;--teal-400:#22c5b0;--teal-100:#d0f5f0;--teal-50:#eafaf8;--cream:#faf8f4;--warm-100:#f5f0e8;--warm-200:#e8dfc9;--text-dark:#0d2420;--text-mid:#2d5a52;--text-muted:#6b9490;--red-500:#dc2626;--red-100:#fee2e2;--amber-500:#d97706;--amber-100:#fef3c7;--green-500:#16a34a;--green-100:#dcfce7}
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-body{font-family:system-ui,sans-serif;background:var(--cream);color:var(--text-dark);min-height:100vh}
-header{background:var(--teal-900);padding:14px 28px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
-.logo{display:flex;align-items:center;gap:12px}
-.logo-icon{width:34px;height:34px;background:var(--teal-400);border-radius:9px;display:flex;align-items:center;justify-content:center}
-.logo-icon svg{width:18px;height:18px;fill:var(--teal-900)}
-.logo-text{font-size:18px;color:#fff;font-weight:700}
-.logo-sub{font-size:11px;color:var(--teal-400);letter-spacing:.5px;text-transform:uppercase}
-.header-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.date-badge{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);padding:6px 14px;border-radius:20px;font-size:12px;color:var(--teal-400)}
-.user-badge{background:var(--teal-700);border:1px solid var(--teal-600);padding:6px 14px;border-radius:20px;font-size:12px;color:#fff;font-weight:600;display:flex;align-items:center;gap:6px}
-.user-badge svg{width:13px;height:13px;fill:var(--teal-300)}
-.btn-header{padding:7px 16px;border-radius:10px;font-size:12px;font-weight:600;cursor:pointer;border:none;transition:all .2s}
-.refresh-btn{background:var(--teal-50);border:1.5px solid var(--teal-100);color:var(--teal-700)}
-.refresh-btn:hover{background:var(--teal-100)}
-.logout-btn{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#fff}
-.logout-btn:hover{background:rgba(255,255,255,.15)}
-.main{max-width:1200px;margin:0 auto;padding:24px 20px}
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ClearSight — Staff Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #0b1120;
+      --surface: #131929;
+      --surface2: #1a2235;
+      --border: #1e2d45;
+      --border2: #243352;
+      --text: #e2eaf7;
+      --text2: #7a8ba8;
+      --text3: #4a5a75;
+      --accent: #00d9a6;
+      --accent2: #0097ff;
+      --emergency: #ff4d6d;
+      --urgent: #ff9f43;
+      --routine: #00d9a6;
+      --emergency-bg: rgba(255,77,109,0.1);
+      --urgent-bg: rgba(255,159,67,0.1);
+      --routine-bg: rgba(0,217,166,0.1);
+      --font: 'DM Sans', sans-serif;
+      --mono: 'DM Mono', monospace;
+    }
 
-/* Login screen */
-.login-screen{display:flex;align-items:center;justify-content:center;min-height:80vh}
-.login-card{background:#fff;border-radius:20px;padding:40px;width:100%;max-width:400px;box-shadow:0 8px 32px rgba(10,46,42,.12)}
-.login-card h2{font-size:20px;font-weight:700;color:var(--text-dark);margin-bottom:6px}
-.login-card p{font-size:13px;color:var(--text-muted);margin-bottom:28px}
-.login-tabs{display:flex;gap:8px;margin-bottom:24px}
-.login-tab{flex:1;padding:9px;border-radius:10px;border:1.5px solid var(--warm-200);background:transparent;font-size:13px;font-weight:600;cursor:pointer;color:var(--text-muted);transition:all .2s}
-.login-tab.active{background:var(--teal-700);border-color:var(--teal-700);color:#fff}
-.form-group{margin-bottom:16px}
-.form-group label{display:block;font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
-.form-group input{width:100%;padding:11px 14px;border:1.5px solid var(--warm-200);border-radius:10px;font-size:14px;font-family:system-ui,sans-serif;color:var(--text-dark);background:var(--cream);outline:none;transition:border-color .2s}
-.form-group input:focus{border-color:var(--teal-400);background:#fff}
-.login-btn{width:100%;padding:12px;background:var(--teal-700);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;transition:all .2s;margin-top:8px}
-.login-btn:hover{background:var(--teal-600)}
-.login-error{background:var(--red-100);color:#991b1b;border-radius:8px;padding:10px 14px;font-size:13px;margin-top:12px;display:none}
+    * { box-sizing: border-box; margin: 0; padding: 0; }
 
-/* Stats */
-.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
-.stat-card{background:#fff;border-radius:14px;padding:18px;box-shadow:0 1px 4px rgba(10,46,42,.08)}
-.stat-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);margin-bottom:8px}
-.stat-value{font-size:26px;font-weight:700;color:var(--text-dark)}
-.stat-sub{font-size:11px;color:var(--text-muted);margin-top:4px}
-.stat-card.emergency .stat-value{color:var(--red-500)}
-.stat-card.urgent .stat-value{color:var(--amber-500)}
-.stat-card.routine .stat-value{color:var(--green-500)}
-.stat-card.seen .stat-value{color:var(--teal-600)}
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
 
-/* Doctor workload */
-.doctor-workload{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:24px}
-.workload-card{background:#fff;border-radius:14px;padding:18px;box-shadow:0 1px 4px rgba(10,46,42,.08)}
-.workload-title{font-size:13px;font-weight:700;color:var(--text-dark);margin-bottom:14px;display:flex;align-items:center;gap:8px}
-.workload-title .badge{background:var(--teal-50);color:var(--teal-700);border-radius:20px;padding:2px 10px;font-size:11px;border:1px solid var(--teal-100)}
-.workload-title .you-badge{background:var(--amber-100);color:#92400e;border-radius:20px;padding:2px 8px;font-size:11px}
-.wl-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
-.wl-label{font-size:12px;color:var(--text-muted);width:58px;flex-shrink:0}
-.wl-bar{flex:1;height:6px;background:var(--warm-100);border-radius:3px;overflow:hidden}
-.wl-fill{height:100%;border-radius:3px;transition:width .5s}
-.wl-fill.total{background:var(--teal-600)}
-.wl-fill.seen{background:var(--green-500)}
-.wl-count{font-size:12px;font-weight:700;color:var(--text-dark);width:20px;text-align:right}
+    /* ── Login Screen ─────────────────────────────────── */
+    #login-screen {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(ellipse at 50% 0%, rgba(0,217,166,0.08) 0%, transparent 60%),
+                  radial-gradient(ellipse at 100% 100%, rgba(0,151,255,0.06) 0%, transparent 50%),
+                  var(--bg);
+    }
 
-/* Table */
-.appointments-panel{background:#fff;border-radius:14px;box-shadow:0 1px 4px rgba(10,46,42,.08);overflow:hidden;margin-bottom:24px}
-.panel-header{padding:14px 20px;border-bottom:1px solid var(--warm-100);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
-.panel-header h2{font-size:15px;font-weight:700;color:var(--text-dark)}
-.filter-tabs{display:flex;gap:6px;flex-wrap:wrap}
-.filter-tab{padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid var(--warm-200);background:transparent;color:var(--text-muted);transition:all .2s}
-.filter-tab.active{background:var(--teal-700);border-color:var(--teal-700);color:#fff}
-.appt-table{width:100%;border-collapse:collapse}
-.appt-table th{padding:9px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);background:var(--cream);border-bottom:1px solid var(--warm-100)}
-.appt-table td{padding:12px 14px;border-bottom:1px solid var(--warm-100);font-size:13px;vertical-align:middle}
-.appt-table tr:last-child td{border-bottom:none}
-.appt-table tr:hover td{background:var(--teal-50)}
-.urgency-pill{padding:3px 9px;border-radius:20px;font-size:10px;font-weight:700;text-transform:uppercase;display:inline-block}
-.urgency-pill.emergency{background:var(--red-100);color:#991b1b}
-.urgency-pill.urgent{background:var(--amber-100);color:#92400e}
-.urgency-pill.routine{background:var(--green-100);color:#14532d}
-.score-bar-sm{height:4px;background:var(--warm-100);border-radius:2px;width:46px;overflow:hidden;display:inline-block;vertical-align:middle;margin-left:5px}
-.score-fill-sm{height:100%;border-radius:2px}
-.score-fill-sm.emergency{background:var(--red-500)}
-.score-fill-sm.urgent{background:var(--amber-500)}
-.score-fill-sm.routine{background:var(--green-500)}
-.patient-name{font-weight:600;color:var(--text-dark)}
-.patient-phone{font-size:11px;color:var(--text-muted);margin-top:1px}
-.doctor-cell{font-size:12px;font-weight:600;color:var(--teal-700)}
-.doctor-cell.mine{color:var(--amber-500)}
-.slot-time{font-weight:600;color:var(--teal-700);font-size:14px}
-.slot-date{font-size:11px;color:var(--text-muted);margin-top:1px}
-.complaint-text{max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-mid)}
-.btn-seen{background:var(--teal-50);border:1.5px solid var(--teal-300);color:var(--teal-700);padding:5px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;transition:all .2s;white-space:nowrap}
-.btn-seen:hover{background:var(--teal-100);transform:scale(1.02)}
-.btn-seen:disabled{opacity:.5;cursor:not-allowed}
-.btn-seen.not-mine{background:var(--warm-100);border-color:var(--warm-200);color:var(--text-muted);cursor:not-allowed}
-.seen-badge{color:var(--green-500);font-weight:700;font-size:12px}
-.empty-state{text-align:center;padding:44px 20px;color:var(--text-muted)}
-.empty-state svg{width:36px;height:36px;fill:var(--warm-200);margin:0 auto 10px;display:block}
-.loading{text-align:center;padding:36px;color:var(--text-muted);font-size:14px}
+    .login-card {
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      border-radius: 20px;
+      padding: 48px;
+      width: 100%;
+      max-width: 420px;
+      box-shadow: 0 24px 80px rgba(0,0,0,0.5);
+    }
 
-@media(max-width:900px){
-  .stats-row{grid-template-columns:repeat(2,1fr)}
-  .doctor-workload{grid-template-columns:1fr}
-  .appt-table th:nth-child(3),.appt-table td:nth-child(3){display:none}
-}
-</style>
+    .login-logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 32px;
+    }
+
+    .login-logo-icon {
+      width: 44px; height: 44px;
+      background: linear-gradient(135deg, #00d9a6, #0097ff);
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px;
+    }
+
+    .login-logo-text h1 { font-size: 20px; font-weight: 700; color: var(--text); }
+    .login-logo-text p { font-size: 12px; color: var(--text2); letter-spacing: 0.5px; }
+
+    .login-tabs {
+      display: flex;
+      background: var(--bg);
+      border-radius: 10px;
+      padding: 4px;
+      margin-bottom: 28px;
+      gap: 4px;
+    }
+
+    .login-tab {
+      flex: 1; padding: 10px;
+      border: none; border-radius: 8px;
+      font-family: var(--font); font-size: 14px; font-weight: 500;
+      cursor: pointer; transition: all 0.2s;
+      background: transparent; color: var(--text2);
+    }
+
+    .login-tab.active {
+      background: var(--surface2);
+      color: var(--text);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+
+    .form-group { margin-bottom: 16px; }
+
+    .form-label {
+      display: block;
+      font-size: 12px; font-weight: 600;
+      color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    .form-input {
+      width: 100%; padding: 12px 16px;
+      background: var(--bg); border: 1px solid var(--border2);
+      border-radius: 10px; color: var(--text);
+      font-family: var(--font); font-size: 14px;
+      transition: border-color 0.2s;
+      outline: none;
+    }
+
+    .form-input:focus { border-color: var(--accent); }
+
+    .login-btn {
+      width: 100%; padding: 14px;
+      background: linear-gradient(135deg, #00d9a6, #0097ff);
+      border: none; border-radius: 10px;
+      color: white; font-family: var(--font);
+      font-size: 15px; font-weight: 600;
+      cursor: pointer; margin-top: 8px;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+
+    .login-btn:hover { opacity: 0.9; }
+    .login-btn:active { transform: scale(0.98); }
+
+    .login-error {
+      background: rgba(255,77,109,0.1);
+      border: 1px solid rgba(255,77,109,0.3);
+      border-radius: 8px; padding: 10px 14px;
+      font-size: 13px; color: #ff4d6d;
+      margin-top: 12px; display: none;
+    }
+
+    /* ── App Shell ───────────────────────────────────── */
+    #app { display: none; }
+
+    .topbar {
+      display: flex; align-items: center;
+      padding: 0 24px; height: 60px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; z-index: 100;
+    }
+
+    .topbar-logo {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 16px; font-weight: 700; color: var(--text);
+      text-decoration: none;
+    }
+
+    .topbar-logo-icon {
+      width: 32px; height: 32px;
+      background: linear-gradient(135deg, #00d9a6, #0097ff);
+      border-radius: 8px; display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+    }
+
+    .topbar-nav {
+      display: flex; align-items: center; gap: 4px;
+      margin-left: 32px;
+    }
+
+    .nav-btn {
+      padding: 7px 16px; border-radius: 8px;
+      border: none; background: transparent;
+      color: var(--text2); font-family: var(--font);
+      font-size: 14px; font-weight: 500;
+      cursor: pointer; transition: all 0.15s;
+    }
+
+    .nav-btn:hover { background: var(--surface2); color: var(--text); }
+    .nav-btn.active { background: var(--surface2); color: var(--accent); }
+
+    .topbar-right {
+      margin-left: auto;
+      display: flex; align-items: center; gap: 12px;
+    }
+
+    .user-pill {
+      display: flex; align-items: center; gap: 8px;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 20px; padding: 6px 14px 6px 8px;
+      font-size: 13px; color: var(--text2);
+    }
+
+    .user-avatar {
+      width: 24px; height: 24px; border-radius: 50%;
+      background: linear-gradient(135deg, #00d9a6, #0097ff);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700; color: white;
+    }
+
+    .logout-btn {
+      padding: 7px 14px; border-radius: 8px;
+      border: 1px solid var(--border2);
+      background: transparent; color: var(--text2);
+      font-family: var(--font); font-size: 13px;
+      cursor: pointer; transition: all 0.15s;
+    }
+
+    .logout-btn:hover { border-color: var(--emergency); color: var(--emergency); }
+
+    /* ── Page Content ────────────────────────────────── */
+    .page { display: none; padding: 28px 24px; max-width: 1400px; margin: 0 auto; }
+    .page.active { display: block; }
+
+    .page-header {
+      display: flex; align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+    }
+
+    .page-title { font-size: 22px; font-weight: 700; }
+    .page-sub { font-size: 13px; color: var(--text2); margin-top: 2px; }
+
+    .refresh-btn {
+      padding: 8px 18px; border-radius: 8px;
+      border: 1px solid var(--border2);
+      background: var(--surface); color: var(--text2);
+      font-family: var(--font); font-size: 13px;
+      cursor: pointer; transition: all 0.15s;
+      display: flex; align-items: center; gap: 6px;
+    }
+
+    .refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* ── Stats Grid ──────────────────────────────────── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 16px; margin-bottom: 24px;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px; padding: 20px;
+      transition: border-color 0.2s;
+    }
+
+    .stat-card:hover { border-color: var(--border2); }
+
+    .stat-icon {
+      font-size: 20px; margin-bottom: 12px;
+    }
+
+    .stat-value {
+      font-size: 28px; font-weight: 700;
+      line-height: 1; margin-bottom: 6px;
+    }
+
+    .stat-label {
+      font-size: 11px; font-weight: 600;
+      color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px;
+    }
+
+    .stat-card.green .stat-value { color: var(--routine); }
+    .stat-card.orange .stat-value { color: var(--urgent); }
+    .stat-card.red .stat-value { color: var(--emergency); }
+    .stat-card.blue .stat-value { color: var(--accent2); }
+
+    /* ── Charts Grid ─────────────────────────────────── */
+    .charts-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px; margin-bottom: 24px;
+    }
+
+    @media (max-width: 900px) { .charts-grid { grid-template-columns: 1fr; } }
+
+    .chart-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px; padding: 20px;
+    }
+
+    .chart-title {
+      font-size: 14px; font-weight: 600;
+      color: var(--text); margin-bottom: 4px;
+    }
+
+    .chart-sub {
+      font-size: 12px; color: var(--text2);
+      margin-bottom: 16px;
+    }
+
+    canvas { max-height: 220px; }
+
+    /* ── Appointments List ───────────────────────────── */
+    .appt-filters {
+      display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap;
+    }
+
+    .filter-btn {
+      padding: 6px 14px; border-radius: 20px;
+      border: 1px solid var(--border2);
+      background: transparent; color: var(--text2);
+      font-family: var(--font); font-size: 12px; font-weight: 500;
+      cursor: pointer; transition: all 0.15s;
+    }
+
+    .filter-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .filter-btn.active { background: rgba(0,217,166,0.1); border-color: var(--accent); color: var(--accent); }
+
+    .appt-list { display: flex; flex-direction: column; gap: 10px; }
+
+    .appt-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px; padding: 16px 20px;
+      display: grid;
+      grid-template-columns: auto 1fr auto auto;
+      gap: 16px; align-items: center;
+      transition: border-color 0.2s;
+    }
+
+    .appt-card:hover { border-color: var(--border2); }
+    .appt-card.seen { opacity: 0.5; }
+
+    .appt-time {
+      text-align: center; min-width: 56px;
+    }
+
+    .appt-time-hour {
+      font-size: 18px; font-weight: 700;
+      color: var(--accent); font-family: var(--mono);
+      line-height: 1;
+    }
+
+    .appt-time-ampm {
+      font-size: 10px; color: var(--text2); margin-top: 2px;
+    }
+
+    .appt-info {}
+
+    .appt-name {
+      font-size: 15px; font-weight: 600; color: var(--text);
+      margin-bottom: 4px;
+    }
+
+    .appt-meta {
+      display: flex; gap: 12px; flex-wrap: wrap;
+    }
+
+    .appt-meta-item {
+      font-size: 12px; color: var(--text2);
+      display: flex; align-items: center; gap: 4px;
+    }
+
+    .appt-complaint {
+      font-size: 12px; color: var(--text3);
+      margin-top: 4px; font-style: italic;
+    }
+
+    .urgency-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 4px 10px; border-radius: 20px;
+      font-size: 11px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.3px;
+      white-space: nowrap;
+    }
+
+    .urgency-badge.emergency {
+      background: var(--emergency-bg);
+      color: var(--emergency); border: 1px solid rgba(255,77,109,0.2);
+    }
+
+    .urgency-badge.urgent {
+      background: var(--urgent-bg);
+      color: var(--urgent); border: 1px solid rgba(255,159,67,0.2);
+    }
+
+    .urgency-badge.routine {
+      background: var(--routine-bg);
+      color: var(--routine); border: 1px solid rgba(0,217,166,0.2);
+    }
+
+    .seen-btn {
+      padding: 8px 16px; border-radius: 8px;
+      border: 1px solid var(--border2);
+      background: transparent; color: var(--text2);
+      font-family: var(--font); font-size: 12px; font-weight: 500;
+      cursor: pointer; white-space: nowrap;
+      transition: all 0.15s;
+    }
+
+    .seen-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .seen-btn.done { border-color: var(--routine); color: var(--routine); cursor: default; }
+
+    .empty-state {
+      text-align: center; padding: 48px 24px;
+      color: var(--text2); font-size: 14px;
+    }
+
+    .empty-state .empty-icon { font-size: 48px; margin-bottom: 12px; }
+
+    /* ── Analytics Page ──────────────────────────────── */
+    .analytics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px; margin-bottom: 24px;
+    }
+
+    .donut-wrapper {
+      display: flex; align-items: center; gap: 20px;
+    }
+
+    .donut-wrapper canvas { max-height: 160px; max-width: 160px; }
+
+    .legend { flex: 1; }
+
+    .legend-item {
+      display: flex; align-items: center;
+      justify-content: space-between;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+
+    .legend-item:last-child { border-bottom: none; }
+
+    .legend-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      margin-right: 8px; display: inline-block;
+    }
+
+    .legend-label { display: flex; align-items: center; color: var(--text2); }
+    .legend-value { font-weight: 600; color: var(--text); }
+
+    .bar-chart-item {
+      margin-bottom: 12px;
+    }
+
+    .bar-label {
+      display: flex; justify-content: space-between;
+      font-size: 12px; margin-bottom: 4px;
+    }
+
+    .bar-label span:first-child { color: var(--text2); }
+    .bar-label span:last-child { color: var(--text); font-weight: 600; }
+
+    .bar-track {
+      height: 6px; background: var(--bg);
+      border-radius: 3px; overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%; border-radius: 3px;
+      background: linear-gradient(90deg, #00d9a6, #0097ff);
+      transition: width 0.8s ease;
+    }
+
+    /* ── Loader ──────────────────────────────────────── */
+    .loader {
+      text-align: center; padding: 40px;
+      color: var(--text2); font-size: 14px;
+    }
+
+    .spinner {
+      width: 32px; height: 32px;
+      border: 2px solid var(--border2);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 12px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Doctor Workload Bars ────────────────────────── */
+    .workload-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 0; border-bottom: 1px solid var(--border);
+    }
+
+    .workload-item:last-child { border-bottom: none; }
+    .workload-name { font-size: 13px; color: var(--text); min-width: 140px; }
+    .workload-bar-track { flex: 1; height: 8px; background: var(--bg); border-radius: 4px; overflow: hidden; }
+    .workload-bar-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, #0097ff, #00d9a6); }
+    .workload-count { font-size: 13px; font-weight: 600; color: var(--accent); min-width: 30px; text-align: right; }
+
+    /* ── Scrollbar ───────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+    /* ── Date badge ──────────────────────────────────── */
+    .date-badge {
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 8px; padding: 6px 14px;
+      font-size: 13px; color: var(--text2);
+    }
+  </style>
 </head>
 <body>
 
-<!-- Login Screen -->
-<div class="login-screen" id="login-screen">
+<!-- ── LOGIN SCREEN ──────────────────────────────────────────────────── -->
+<div id="login-screen">
   <div class="login-card">
-    <h2>ClearSight Staff</h2>
-    <p>Sign in to access your patient dashboard</p>
+    <div class="login-logo">
+      <div class="login-logo-icon">👁</div>
+      <div class="login-logo-text">
+        <h1>ClearSight Staff</h1>
+        <p>EYE CLINIC MANAGEMENT</p>
+      </div>
+    </div>
+
     <div class="login-tabs">
-      <button class="login-tab active" onclick="setLoginRole('doctor', this)">Doctor Login</button>
-      <button class="login-tab" onclick="setLoginRole('admin', this)">Admin Login</button>
+      <button class="login-tab active" onclick="switchTab('doctor')">Doctor Login</button>
+      <button class="login-tab" onclick="switchTab('admin')">Admin Login</button>
     </div>
-    <div class="form-group">
-      <label id="username-label">Doctor Username</label>
-      <input type="text" id="login-username" placeholder="e.g. dr.ijeoma" autocomplete="username">
+
+    <div id="tab-doctor">
+      <div class="form-group">
+        <label class="form-label">Doctor Username</label>
+        <input class="form-input" type="text" id="doctor-username" placeholder="e.g. dr.ijeoma" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input class="form-input" type="password" id="doctor-password" placeholder="••••••••"
+          onkeydown="if(event.key==='Enter')doLogin('doctor')" />
+      </div>
+      <button class="login-btn" onclick="doLogin('doctor')">Sign In as Doctor</button>
     </div>
-    <div class="form-group">
-      <label>Password</label>
-      <input type="password" id="login-password" placeholder="Enter your password" autocomplete="current-password">
+
+    <div id="tab-admin" style="display:none">
+      <div class="form-group">
+        <label class="form-label">Admin Username</label>
+        <input class="form-input" type="text" id="admin-username" placeholder="admin" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input class="form-input" type="password" id="admin-password" placeholder="••••••••"
+          onkeydown="if(event.key==='Enter')doLogin('admin')" />
+      </div>
+      <button class="login-btn" onclick="doLogin('admin')">Sign In as Admin</button>
     </div>
-    <button class="login-btn" onclick="doLogin()">Sign In</button>
+
     <div class="login-error" id="login-error"></div>
   </div>
 </div>
 
-<!-- Dashboard -->
-<div id="dashboard-screen" style="display:none">
-  <header>
-    <div class="logo">
-      <div class="logo-icon">
-        <svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+<!-- ── APP SHELL ──────────────────────────────────────────────────────── -->
+<div id="app">
+  <div class="topbar">
+    <a class="topbar-logo" href="#">
+      <div class="topbar-logo-icon">👁</div>
+      ClearSight
+    </a>
+    <nav class="topbar-nav">
+      <button class="nav-btn active" onclick="showPage('appointments')">Appointments</button>
+      <button class="nav-btn" onclick="showPage('analytics')" id="analytics-nav">Analytics</button>
+    </nav>
+    <div class="topbar-right">
+      <div class="user-pill">
+        <div class="user-avatar" id="user-avatar">?</div>
+        <span id="user-display">Loading...</span>
       </div>
+      <button class="logout-btn" onclick="doLogout()">Sign Out</button>
+    </div>
+  </div>
+
+  <!-- ── APPOINTMENTS PAGE ─────────────────────────────── -->
+  <div class="page active" id="page-appointments">
+    <div class="page-header">
       <div>
-        <div class="logo-text">ClearSight</div>
-        <div class="logo-sub">Staff Dashboard</div>
+        <div class="page-title">Today's Appointments</div>
+        <div class="page-sub" id="today-date">Loading...</div>
       </div>
-    </div>
-    <div class="header-right">
-      <div class="date-badge" id="date-display"></div>
-      <div class="user-badge" id="user-badge">
-        <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
-        <span id="user-label">Loading...</span>
-      </div>
-      <button class="btn-header refresh-btn" onclick="loadData()">↻ Refresh</button>
-      <button class="btn-header logout-btn" onclick="doLogout()">Sign Out</button>
-    </div>
-  </header>
-
-  <div class="main">
-
-    <!-- Stats -->
-    <div class="stats-row">
-      <div class="stat-card">
-        <div class="stat-label">My Patients Today</div>
-        <div class="stat-value" id="stat-total">—</div>
-        <div class="stat-sub">scheduled</div>
-      </div>
-      <div class="stat-card emergency">
-        <div class="stat-label">Emergency</div>
-        <div class="stat-value" id="stat-emergency">—</div>
-        <div class="stat-sub">immediate</div>
-      </div>
-      <div class="stat-card urgent">
-        <div class="stat-label">Urgent</div>
-        <div class="stat-value" id="stat-urgent">—</div>
-        <div class="stat-sub">seen today</div>
-      </div>
-      <div class="stat-card seen">
-        <div class="stat-label">Seen</div>
-        <div class="stat-value" id="stat-seen">—</div>
-        <div class="stat-sub">completed</div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <div class="date-badge" id="appt-count-badge">— patients</div>
+        <button class="refresh-btn" onclick="loadAppointments()">↻ Refresh</button>
       </div>
     </div>
 
-    <!-- Doctor workload (admin only) -->
-    <div class="doctor-workload" id="doctor-workload" style="display:none"></div>
+    <div class="appt-filters">
+      <button class="filter-btn active" onclick="filterAppts('all', this)">All</button>
+      <button class="filter-btn" onclick="filterAppts('emergency', this)">🔴 Emergency</button>
+      <button class="filter-btn" onclick="filterAppts('urgent', this)">🟡 Urgent</button>
+      <button class="filter-btn" onclick="filterAppts('routine', this)">🟢 Routine</button>
+      <button class="filter-btn" onclick="filterAppts('scheduled', this)">Pending</button>
+      <button class="filter-btn" onclick="filterAppts('completed', this)">Seen</button>
+    </div>
 
-    <!-- Appointments -->
-    <div class="appointments-panel">
-      <div class="panel-header">
-        <h2 id="panel-title">Today's Patients</h2>
-        <div class="filter-tabs">
-          <button class="filter-tab active" onclick="filterAppts('pending', this)">Pending</button>
-          <button class="filter-tab" onclick="filterAppts('emergency', this)">Emergency</button>
-          <button class="filter-tab" onclick="filterAppts('urgent', this)">Urgent</button>
-          <button class="filter-tab" onclick="filterAppts('routine', this)">Routine</button>
-          <button class="filter-tab" onclick="filterAppts('seen', this)">Seen ✓</button>
-          <button class="filter-tab" onclick="filterAppts('all', this)">All</button>
+    <div id="appt-list" class="appt-list">
+      <div class="loader"><div class="spinner"></div>Loading appointments...</div>
+    </div>
+  </div>
+
+  <!-- ── ANALYTICS PAGE ────────────────────────────────── -->
+  <div class="page" id="page-analytics">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Clinic Analytics</div>
+        <div class="page-sub">Real-time insights to drive business decisions</div>
+      </div>
+      <button class="refresh-btn" onclick="loadAnalytics()">↻ Refresh</button>
+    </div>
+
+    <!-- KPI Row -->
+    <div class="stats-grid" id="kpi-grid">
+      <div class="loader" style="grid-column:1/-1"><div class="spinner"></div>Loading...</div>
+    </div>
+
+    <!-- Charts Row 1 -->
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-title">Urgency Distribution</div>
+        <div class="chart-sub">All time — percentage breakdown</div>
+        <div class="donut-wrapper">
+          <canvas id="urgencyDonut"></canvas>
+          <div class="legend" id="urgency-legend"></div>
         </div>
       </div>
-      <div id="appt-container">
-        <div class="loading">Loading appointments...</div>
+
+      <div class="chart-card">
+        <div class="chart-title">7-Day Urgency Trend</div>
+        <div class="chart-sub">Daily patient volume by urgency level</div>
+        <canvas id="trendChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Charts Row 2 -->
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-title">Peak Booking Hours</div>
+        <div class="chart-sub">When patients book most (Lagos time)</div>
+        <canvas id="hoursChart"></canvas>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-title">Eye Affected</div>
+        <div class="chart-sub">Left vs right vs both eyes</div>
+        <div class="donut-wrapper">
+          <canvas id="eyeDonut"></canvas>
+          <div class="legend" id="eye-legend"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Row -->
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-title">Top Chief Complaints</div>
+        <div class="chart-sub">Most common presenting problems</div>
+        <div id="conditions-bars">
+          <div class="loader"><div class="spinner"></div></div>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-title">Doctor Workload</div>
+        <div class="chart-sub">Total appointments per doctor</div>
+        <div id="workload-bars">
+          <div class="loader"><div class="spinner"></div></div>
+        </div>
       </div>
     </div>
 
@@ -208,337 +672,379 @@ header{background:var(--teal-900);padding:14px 28px;display:flex;align-items:cen
 </div>
 
 <script>
-// ── State ──────────────────────────────────────────────────────────────────────
-let allAppts = [];
-let currentFilter = 'pending';
-let session = {
-  token: localStorage.getItem('cs_token'),
-  role: localStorage.getItem('cs_role'),
-  doctorId: localStorage.getItem('cs_doctor_id'),
-  doctorName: localStorage.getItem('cs_doctor_name'),
-  username: localStorage.getItem('cs_username'),
-};
-let loginRole = 'doctor';
+  // ── State ───────────────────────────────────────────────────────────────────
+  const state = {
+    token: localStorage.getItem('cs_token'),
+    role: localStorage.getItem('cs_role'),
+    userName: localStorage.getItem('cs_name'),
+    appointments: [],
+    activeFilter: 'all',
+    charts: {},
+  };
 
-// ── Init ───────────────────────────────────────────────────────────────────────
-document.getElementById('date-display') && (
-  document.getElementById('date-display').textContent = new Date().toLocaleDateString('en-NG', {
-    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
-  })
-);
-
-// Handle enter key on login
-document.getElementById('login-password').addEventListener('keydown', e => {
-  if (e.key === 'Enter') doLogin();
-});
-
-// Auto-load if already logged in
-if (session.token) {
-  showDashboard();
-  loadData();
-}
-
-// ── Login ──────────────────────────────────────────────────────────────────────
-function setLoginRole(role, btn) {
-  loginRole = role;
-  document.querySelectorAll('.login-tab').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  document.getElementById('username-label').textContent =
-    role === 'admin' ? 'Admin Username' : 'Doctor Username';
-  document.getElementById('login-username').placeholder =
-    role === 'admin' ? 'admin username' : 'e.g. dr.ijeoma';
-}
-
-async function doLogin() {
-  const username = document.getElementById('login-username').value.trim();
-  const password = document.getElementById('login-password').value;
-  const errEl = document.getElementById('login-error');
-  errEl.style.display = 'none';
-
-  if (!username || !password) {
-    showLoginError('Please enter both username and password.');
-    return;
-  }
-
-  const endpoint = loginRole === 'admin'
-    ? '/api/v1/auth/login'
-    : '/api/v1/auth/doctor-login';
-
-  try {
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password })
-    });
-
-    if (!res.ok) {
-      showLoginError('Invalid username or password.');
-      return;
+  // ── Init ────────────────────────────────────────────────────────────────────
+  document.addEventListener('DOMContentLoaded', () => {
+    if (state.token) {
+      showApp();
     }
-
-    const data = await res.json();
-    session.token = data.access_token;
-    session.role = data.role || (loginRole === 'admin' ? 'admin' : 'doctor');
-    session.doctorId = data.doctor_id || null;
-    session.doctorName = data.doctor_name || username;
-    session.username = username;
-
-    localStorage.setItem('cs_token', session.token);
-    localStorage.setItem('cs_role', session.role);
-    localStorage.setItem('cs_doctor_id', session.doctorId || '');
-    localStorage.setItem('cs_doctor_name', session.doctorName || '');
-    localStorage.setItem('cs_username', session.username);
-
-    showDashboard();
-    loadData();
-  } catch (e) {
-    showLoginError('Connection error. Is the server running?');
-  }
-}
-
-function showLoginError(msg) {
-  const el = document.getElementById('login-error');
-  el.textContent = msg;
-  el.style.display = 'block';
-}
-
-function showDashboard() {
-  document.getElementById('login-screen').style.display = 'none';
-  document.getElementById('dashboard-screen').style.display = 'block';
-
-  const label = session.role === 'admin'
-    ? 'Admin'
-    : session.doctorName || session.username;
-  document.getElementById('user-label').textContent = label;
-
-  document.getElementById('stat-total').closest('.stat-card')
-    .querySelector('.stat-label').textContent =
-    session.role === 'admin' ? "Today's Appointments" : "My Patients Today";
-}
-
-function doLogout() {
-  ['cs_token','cs_role','cs_doctor_id','cs_doctor_name','cs_username'].forEach(k =>
-    localStorage.removeItem(k)
-  );
-  session = { token:null, role:null, doctorId:null, doctorName:null, username:null };
-  document.getElementById('login-screen').style.display = 'flex';
-  document.getElementById('dashboard-screen').style.display = 'none';
-  document.getElementById('login-username').value = '';
-  document.getElementById('login-password').value = '';
-  document.getElementById('login-error').style.display = 'none';
-}
-
-// ── Load data ──────────────────────────────────────────────────────────────────
-async function loadData() {
-  try {
-    const res = await fetch('/api/v1/admin/appointments/today', {
-      headers: { 'Authorization': `Bearer ${session.token}` }
-    });
-
-    if (res.status === 401) {
-      doLogout();
-      return;
-    }
-
-    const data = await res.json();
-    allAppts = data.appointments || [];
-    renderStats();
-    if (session.role === 'admin') renderWorkload();
-    renderTable(currentFilter);
-  } catch (err) {
-    document.getElementById('appt-container').innerHTML =
-      '<div class="loading">Failed to load. Check server connection.</div>';
-  }
-}
-
-// ── Stats ──────────────────────────────────────────────────────────────────────
-function renderStats() {
-  const pending = allAppts.filter(a => a.status !== 'completed');
-  document.getElementById('stat-total').textContent = pending.length;
-  document.getElementById('stat-emergency').textContent =
-    pending.filter(a => a.urgency_level === 'emergency').length;
-  document.getElementById('stat-urgent').textContent =
-    pending.filter(a => a.urgency_level === 'urgent').length;
-  document.getElementById('stat-seen').textContent =
-    allAppts.filter(a => a.status === 'completed').length;
-}
-
-// ── Doctor workload (admin only) ───────────────────────────────────────────────
-function renderWorkload() {
-  const wl = {};
-  allAppts.forEach(a => {
-    const name = a.doctor_name || 'Unassigned';
-    if (!wl[name]) wl[name] = { total: 0, seen: 0, doctor_id: a.doctor_id };
-    wl[name].total++;
-    if (a.status === 'completed') wl[name].seen++;
+    setInterval(() => { if (state.token) loadAppointments(); }, 60000);
   });
 
-  const names = Object.keys(wl);
-  if (!names.length) return;
-
-  const max = Math.max(...names.map(n => wl[n].total), 1);
-  const wrap = document.getElementById('doctor-workload');
-  wrap.style.display = 'grid';
-
-  wrap.innerHTML = names.map(name => `
-    <div class="workload-card">
-      <div class="workload-title">
-        ${esc(name)}
-        <span class="badge">${wl[name].total} patients</span>
-      </div>
-      <div class="wl-row">
-        <div class="wl-label">Scheduled</div>
-        <div class="wl-bar"><div class="wl-fill total" style="width:${(wl[name].total/max)*100}%"></div></div>
-        <div class="wl-count">${wl[name].total}</div>
-      </div>
-      <div class="wl-row">
-        <div class="wl-label" style="color:var(--green-500)">Seen</div>
-        <div class="wl-bar"><div class="wl-fill seen" style="width:${(wl[name].seen/max)*100}%"></div></div>
-        <div class="wl-count" style="color:var(--green-500)">${wl[name].seen}</div>
-      </div>
-      <div style="font-size:11px;color:var(--text-muted);margin-top:8px">
-        ${wl[name].total - wl[name].seen} remaining
-      </div>
-    </div>
-  `).join('');
-}
-
-// ── Table ──────────────────────────────────────────────────────────────────────
-function renderTable(filter) {
-  let filtered;
-  if (filter === 'seen') {
-    filtered = allAppts.filter(a => a.status === 'completed');
-  } else if (filter === 'pending') {
-    filtered = allAppts.filter(a => a.status !== 'completed');
-  } else if (filter === 'all') {
-    filtered = allAppts;
-  } else {
-    filtered = allAppts.filter(a => a.urgency_level === filter && a.status !== 'completed');
-  }
-
-  if (!filtered.length) {
-    document.getElementById('appt-container').innerHTML = `
-      <div class="empty-state">
-        <svg viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/></svg>
-        <p>No ${filter === 'pending' ? 'pending' : filter === 'seen' ? 'seen' : filter} appointments.</p>
-      </div>`;
-    return;
-  }
-
-  const showDoctorCol = session.role === 'admin';
-
-  const rows = filtered.map(a => {
-    const level = (a.urgency_level || 'routine').toLowerCase();
-    const score = a.urgency_score || 1;
-    const slotDate = a.slot_time ? new Date(a.slot_time) : null;
-    const timeStr = slotDate
-      ? slotDate.toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' })
-      : '—';
-    const dateStr = slotDate
-      ? slotDate.toLocaleDateString('en-NG', { weekday: 'short', day: 'numeric', month: 'short' })
-      : '';
-
-    // Determine if this doctor can mark this patient seen
-    const isMyPatient = session.role === 'admin' ||
-      (session.doctorId && a.doctor_id === session.doctorId);
-
-    let seenCell;
-    if (a.status === 'completed') {
-      seenCell = '<span class="seen-badge">✓ Seen</span>';
-    } else if (isMyPatient) {
-      seenCell = `<button class="btn-seen" onclick="markSeen('${a.appointment_id}', this)" title="Mark patient as seen">
-        ✓ Mark Seen
-      </button>`;
-    } else {
-      seenCell = `<button class="btn-seen not-mine" disabled title="This patient is assigned to another doctor">
-        Not your patient
-      </button>`;
-    }
-
-    const doctorCell = showDoctorCol
-      ? `<td><div class="doctor-cell ${a.doctor_id === session.doctorId ? 'mine' : ''}">${esc(a.doctor_name || 'Unassigned')}</div></td>`
-      : '';
-
-    return `<tr>
-      <td>
-        <div class="patient-name">${esc(a.patient_name || 'Walk-in Patient')}</div>
-        <div class="patient-phone">${esc(a.patient_phone || '—')}</div>
-      </td>
-      <td>
-        <span class="urgency-pill ${level}">${level}</span>
-        <div style="margin-top:4px;display:flex;align-items:center;gap:4px">
-          <div class="score-bar-sm"><div class="score-fill-sm ${level}" style="width:${score*10}%"></div></div>
-          <span style="font-size:11px;color:var(--text-muted)">${score}/10</span>
-        </div>
-      </td>
-      <td class="complaint-text" title="${esc(a.chief_complaint || '')}">${esc(a.chief_complaint || '—')}</td>
-      ${doctorCell}
-      <td>
-        <div class="slot-time">${timeStr}</div>
-        <div class="slot-date">${dateStr}</div>
-      </td>
-      <td>${seenCell}</td>
-    </tr>`;
-  }).join('');
-
-  const doctorTh = showDoctorCol ? '<th>Doctor</th>' : '';
-
-  document.getElementById('appt-container').innerHTML = `
-    <table class="appt-table">
-      <thead>
-        <tr>
-          <th>Patient</th>
-          <th>Urgency</th>
-          <th>Chief Complaint</th>
-          ${doctorTh}
-          <th>Slot Time</th>
-          <th>Action</th>
-        </tr>
-      </thead>
-      <tbody>${rows}</tbody>
-    </table>`;
-}
-
-// ── Filter ─────────────────────────────────────────────────────────────────────
-function filterAppts(filter, btn) {
-  currentFilter = filter;
-  document.querySelectorAll('.filter-tab').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  renderTable(filter);
-}
-
-// ── Mark seen ──────────────────────────────────────────────────────────────────
-async function markSeen(appointmentId, btn) {
-  btn.textContent = '...';
-  btn.disabled = true;
-  try {
-    const res = await fetch(`/api/v1/admin/appointments/${appointmentId}/seen`, {
-      method: 'PATCH',
-      headers: { 'Authorization': `Bearer ${session.token}` }
+  function showApp() {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    const name = state.userName || state.role;
+    document.getElementById('user-display').textContent = name;
+    document.getElementById('user-avatar').textContent = name.charAt(0).toUpperCase();
+    document.getElementById('today-date').textContent = new Date().toLocaleDateString('en-NG', {
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
     });
-    if (res.ok) {
-      const appt = allAppts.find(a => a.appointment_id === appointmentId);
-      if (appt) appt.status = 'completed';
-      renderStats();
-      if (session.role === 'admin') renderWorkload();
-      renderTable(currentFilter);
-    } else {
-      btn.textContent = '✓ Mark Seen';
-      btn.disabled = false;
+    // Hide analytics for doctors
+    if (state.role === 'doctor') {
+      document.getElementById('analytics-nav').style.display = 'none';
     }
-  } catch {
-    btn.textContent = '✓ Mark Seen';
-    btn.disabled = false;
+    loadAppointments();
   }
-}
 
-// ── Helpers ────────────────────────────────────────────────────────────────────
-function esc(str) {
-  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
+  // ── Login ───────────────────────────────────────────────────────────────────
+  function switchTab(tab) {
+    document.querySelectorAll('.login-tab').forEach(t => t.classList.remove('active'));
+    event.target.classList.add('active');
+    document.getElementById('tab-doctor').style.display = tab === 'doctor' ? 'block' : 'none';
+    document.getElementById('tab-admin').style.display = tab === 'admin' ? 'block' : 'none';
+    document.getElementById('login-error').style.display = 'none';
+  }
 
-// Auto-refresh every 60s
-setInterval(loadData, 60000);
+  async function doLogin(type) {
+    const errEl = document.getElementById('login-error');
+    errEl.style.display = 'none';
+    const username = document.getElementById(`${type}-username`).value.trim();
+    const password = document.getElementById(`${type}-password`).value;
+
+    if (!username || !password) {
+      errEl.textContent = 'Please enter username and password.';
+      errEl.style.display = 'block'; return;
+    }
+
+    const endpoint = type === 'doctor' ? '/api/v1/auth/doctor-login' : '/api/v1/auth/login';
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Invalid credentials');
+
+      state.token = data.access_token;
+      state.role = data.role || (type === 'admin' ? 'admin' : 'doctor');
+      state.userName = data.doctor_name || username;
+
+      localStorage.setItem('cs_token', state.token);
+      localStorage.setItem('cs_role', state.role);
+      localStorage.setItem('cs_name', state.userName);
+
+      showApp();
+    } catch (err) {
+      errEl.textContent = err.message || 'Login failed. Please try again.';
+      errEl.style.display = 'block';
+    }
+  }
+
+  function doLogout() {
+    localStorage.removeItem('cs_token');
+    localStorage.removeItem('cs_role');
+    localStorage.removeItem('cs_name');
+    state.token = null;
+    Object.values(state.charts).forEach(c => c.destroy());
+    state.charts = {};
+    document.getElementById('app').style.display = 'none';
+    document.getElementById('login-screen').style.display = 'flex';
+  }
+
+  // ── Navigation ──────────────────────────────────────────────────────────────
+  function showPage(name) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(`page-${name}`).classList.add('active');
+    event.target.classList.add('active');
+    if (name === 'analytics') loadAnalytics();
+  }
+
+  // ── Appointments ────────────────────────────────────────────────────────────
+  async function loadAppointments() {
+    const listEl = document.getElementById('appt-list');
+    try {
+      const res = await fetch('/api/v1/admin/appointments/today', {
+        headers: { 'Authorization': `Bearer ${state.token}` }
+      });
+      if (res.status === 401) { doLogout(); return; }
+      const data = await res.json();
+      state.appointments = data.appointments || [];
+      document.getElementById('appt-count-badge').textContent =
+        `${state.appointments.length} patient${state.appointments.length !== 1 ? 's' : ''}`;
+      renderAppointments();
+    } catch (err) {
+      listEl.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div>Failed to load appointments</div>`;
+    }
+  }
+
+  function filterAppts(filter, btn) {
+    state.activeFilter = filter;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderAppointments();
+  }
+
+  function renderAppointments() {
+    const listEl = document.getElementById('appt-list');
+    let appts = state.appointments;
+
+    if (state.activeFilter !== 'all') {
+      if (['emergency','urgent','routine'].includes(state.activeFilter)) {
+        appts = appts.filter(a => a.urgency_level === state.activeFilter);
+      } else if (state.activeFilter === 'scheduled') {
+        appts = appts.filter(a => a.status === 'scheduled');
+      } else if (state.activeFilter === 'completed') {
+        appts = appts.filter(a => a.status === 'completed');
+      }
+    }
+
+    if (appts.length === 0) {
+      listEl.innerHTML = `<div class="empty-state">
+        <div class="empty-icon">📅</div>
+        No appointments for this filter today
+      </div>`;
+      return;
+    }
+
+    listEl.innerHTML = appts.map(a => {
+      const dt = new Date(a.slot_time);
+      const hour = dt.toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit', hour12: true });
+      const [time, ampm] = hour.split(' ');
+      const isSeen = a.status === 'completed';
+
+      return `<div class="appt-card ${isSeen ? 'seen' : ''}" id="appt-${a.appointment_id}">
+        <div class="appt-time">
+          <div class="appt-time-hour">${time}</div>
+          <div class="appt-time-ampm">${ampm || ''}</div>
+        </div>
+        <div class="appt-info">
+          <div class="appt-name">${escHtml(a.patient_name)}</div>
+          <div class="appt-meta">
+            <span class="appt-meta-item">👤 ${escHtml(a.doctor_name)}</span>
+            ${a.patient_phone !== '—' ? `<span class="appt-meta-item">📞 ${escHtml(a.patient_phone)}</span>` : ''}
+            ${a.patient_email !== '—' ? `<span class="appt-meta-item">✉️ ${escHtml(a.patient_email)}</span>` : ''}
+          </div>
+          ${a.chief_complaint !== '—' ? `<div class="appt-complaint">"${escHtml(a.chief_complaint)}"</div>` : ''}
+        </div>
+        <span class="urgency-badge ${a.urgency_level}">
+          ${a.urgency_level === 'emergency' ? '🔴' : a.urgency_level === 'urgent' ? '🟡' : '🟢'}
+          ${a.urgency_level} ${a.urgency_score}/10
+        </span>
+        <button class="seen-btn ${isSeen ? 'done' : ''}"
+          onclick="${isSeen ? '' : `markSeen('${a.appointment_id}', this)`}"
+          ${isSeen ? 'disabled' : ''}>
+          ${isSeen ? '✓ Seen' : 'Mark Seen'}
+        </button>
+      </div>`;
+    }).join('');
+  }
+
+  async function markSeen(id, btn) {
+    btn.textContent = '...';
+    try {
+      const res = await fetch(`/api/v1/admin/appointments/${id}/seen`, {
+        method: 'PATCH',
+        headers: { 'Authorization': `Bearer ${state.token}` }
+      });
+      if (res.ok) {
+        const appt = state.appointments.find(a => a.appointment_id === id);
+        if (appt) appt.status = 'completed';
+        renderAppointments();
+      }
+    } catch { btn.textContent = 'Mark Seen'; }
+  }
+
+  // ── Analytics ───────────────────────────────────────────────────────────────
+  async function loadAnalytics() {
+    try {
+      const res = await fetch('/api/v1/admin/analytics', {
+        headers: { 'Authorization': `Bearer ${state.token}` }
+      });
+      if (!res.ok) throw new Error('Failed to load analytics');
+      const data = await res.json();
+      renderKPIs(data);
+      renderUrgencyDonut(data.urgency_distribution || {});
+      renderTrendChart(data.urgency_trend || {});
+      renderHoursChart(data.peak_hours || {});
+      renderEyeDonut(data.eye_affected || {});
+      renderConditionBars(data.top_conditions || []);
+      renderWorkloadBars(data.doctor_workload || []);
+    } catch (err) {
+      document.getElementById('kpi-grid').innerHTML =
+        `<div style="color:var(--text2);font-size:13px;padding:20px;">Analytics unavailable — ${err.message}</div>`;
+    }
+  }
+
+  function renderKPIs(data) {
+    const totals = data.totals || {};
+    const util = data.slot_utilization || {};
+    const html = `
+      <div class="stat-card blue"><div class="stat-icon">👥</div>
+        <div class="stat-value">${totals.patients || 0}</div>
+        <div class="stat-label">Total Patients</div></div>
+      <div class="stat-card green"><div class="stat-icon">📅</div>
+        <div class="stat-value">${totals.appointments || 0}</div>
+        <div class="stat-label">Total Bookings</div></div>
+      <div class="stat-card orange"><div class="stat-icon">🗓</div>
+        <div class="stat-value">${totals.today || 0}</div>
+        <div class="stat-label">Today's Patients</div></div>
+      <div class="stat-card green"><div class="stat-icon">⚡</div>
+        <div class="stat-value">${data.avg_urgency_score || 0}</div>
+        <div class="stat-label">Avg Urgency Score</div></div>
+      <div class="stat-card red"><div class="stat-icon">🚨</div>
+        <div class="stat-value">${(data.urgency_distribution||{}).emergency || 0}</div>
+        <div class="stat-label">Emergencies</div></div>
+      <div class="stat-card blue"><div class="stat-icon">📊</div>
+        <div class="stat-value">${util.rate || 0}%</div>
+        <div class="stat-label">Slot Utilization</div></div>
+      <div class="stat-card green"><div class="stat-icon">✅</div>
+        <div class="stat-value">${data.completion_rate || 0}%</div>
+        <div class="stat-label">Completion Rate</div></div>
+      <div class="stat-card orange"><div class="stat-icon">🕐</div>
+        <div class="stat-value">${util.available || 0}</div>
+        <div class="stat-label">Open Slots</div></div>
+    `;
+    document.getElementById('kpi-grid').innerHTML = html;
+  }
+
+  function renderUrgencyDonut(dist) {
+    const emergency = dist.emergency || 0;
+    const urgent = dist.urgent || 0;
+    const routine = dist.routine || 0;
+    const total = emergency + urgent + routine;
+
+    if (state.charts.urgency) state.charts.urgency.destroy();
+    state.charts.urgency = new Chart(document.getElementById('urgencyDonut'), {
+      type: 'doughnut',
+      data: {
+        labels: ['Emergency', 'Urgent', 'Routine'],
+        datasets: [{ data: [emergency, urgent, routine],
+          backgroundColor: ['#ff4d6d', '#ff9f43', '#00d9a6'],
+          borderWidth: 0, borderRadius: 4 }]
+      },
+      options: { cutout: '70%', plugins: { legend: { display: false } } }
+    });
+
+    const labels = [['Emergency','#ff4d6d',emergency],['Urgent','#ff9f43',urgent],['Routine','#00d9a6',routine]];
+    document.getElementById('urgency-legend').innerHTML = labels.map(([l, c, v]) => `
+      <div class="legend-item">
+        <div class="legend-label">
+          <span class="legend-dot" style="background:${c}"></span>${l}
+        </div>
+        <span class="legend-value">${v} <span style="color:var(--text2);font-weight:400">(${total ? Math.round(v/total*100) : 0}%)</span></span>
+      </div>`).join('');
+  }
+
+  function renderTrendChart(trend) {
+    const labels = Object.keys(trend).sort();
+    if (state.charts.trend) state.charts.trend.destroy();
+    state.charts.trend = new Chart(document.getElementById('trendChart'), {
+      type: 'bar',
+      data: {
+        labels: labels.map(d => new Date(d).toLocaleDateString('en-NG', {month:'short',day:'numeric'})),
+        datasets: [
+          { label: 'Emergency', data: labels.map(d => (trend[d]||{}).emergency||0), backgroundColor: '#ff4d6d', borderRadius: 3 },
+          { label: 'Urgent', data: labels.map(d => (trend[d]||{}).urgent||0), backgroundColor: '#ff9f43', borderRadius: 3 },
+          { label: 'Routine', data: labels.map(d => (trend[d]||{}).routine||0), backgroundColor: '#00d9a6', borderRadius: 3 },
+        ]
+      },
+      options: {
+        scales: {
+          x: { stacked: true, grid: { display: false }, ticks: { color: '#7a8ba8' } },
+          y: { stacked: true, beginAtZero: true, ticks: { color: '#7a8ba8', stepSize: 1 } }
+        },
+        plugins: { legend: { labels: { color: '#7a8ba8', boxWidth: 10 }, position: 'bottom' } }
+      }
+    });
+  }
+
+  function renderHoursChart(hours) {
+    const allHours = Array.from({length: 11}, (_, i) => i + 8);
+    if (state.charts.hours) state.charts.hours.destroy();
+    state.charts.hours = new Chart(document.getElementById('hoursChart'), {
+      type: 'bar',
+      data: {
+        labels: allHours.map(h => `${h}:00`),
+        datasets: [{ label: 'Bookings', data: allHours.map(h => hours[h] || 0),
+          backgroundColor: 'rgba(0,151,255,0.5)', borderColor: '#0097ff',
+          borderWidth: 1, borderRadius: 4 }]
+      },
+      options: {
+        scales: {
+          x: { grid: { display: false }, ticks: { color: '#7a8ba8' } },
+          y: { beginAtZero: true, ticks: { color: '#7a8ba8', stepSize: 1 } }
+        },
+        plugins: { legend: { display: false } }
+      }
+    });
+  }
+
+  function renderEyeDonut(eye) {
+    const data = [eye.left || 0, eye.right || 0, eye.both || 0];
+    const total = data.reduce((a, b) => a + b, 0);
+    if (state.charts.eye) state.charts.eye.destroy();
+    state.charts.eye = new Chart(document.getElementById('eyeDonut'), {
+      type: 'doughnut',
+      data: {
+        labels: ['Left Eye', 'Right Eye', 'Both Eyes'],
+        datasets: [{ data, backgroundColor: ['#0097ff', '#7c5cfc', '#00d9a6'], borderWidth: 0, borderRadius: 4 }]
+      },
+      options: { cutout: '70%', plugins: { legend: { display: false } } }
+    });
+    const labels = [['Left Eye','#0097ff',data[0]],['Right Eye','#7c5cfc',data[1]],['Both','#00d9a6',data[2]]];
+    document.getElementById('eye-legend').innerHTML = labels.map(([l, c, v]) => `
+      <div class="legend-item">
+        <div class="legend-label"><span class="legend-dot" style="background:${c}"></span>${l}</div>
+        <span class="legend-value">${v} <span style="color:var(--text2);font-weight:400">(${total ? Math.round(v/total*100) : 0}%)</span></span>
+      </div>`).join('');
+  }
+
+  function renderConditionBars(conditions) {
+    const el = document.getElementById('conditions-bars');
+    if (!conditions.length) { el.innerHTML = '<div style="color:var(--text2);font-size:13px;padding:8px">No data yet</div>'; return; }
+    const max = Math.max(...conditions.map(c => c.count), 1);
+    el.innerHTML = conditions.map(c => `
+      <div class="bar-chart-item">
+        <div class="bar-label">
+          <span>${escHtml(c.condition)}</span>
+          <span>${c.count}</span>
+        </div>
+        <div class="bar-track">
+          <div class="bar-fill" style="width:${Math.round(c.count/max*100)}%"></div>
+        </div>
+      </div>`).join('');
+  }
+
+  function renderWorkloadBars(workload) {
+    const el = document.getElementById('workload-bars');
+    if (!workload.length) { el.innerHTML = '<div style="color:var(--text2);font-size:13px;padding:8px">No data yet</div>'; return; }
+    const max = Math.max(...workload.map(w => w.total), 1);
+    el.innerHTML = workload.map(w => `
+      <div class="workload-item">
+        <div class="workload-name">👨‍⚕️ ${escHtml(w.doctor)}</div>
+        <div class="workload-bar-track">
+          <div class="workload-bar-fill" style="width:${Math.round(w.total/max*100)}%"></div>
+        </div>
+        <div class="workload-count">${w.total}</div>
+      </div>`).join('');
+  }
+
+  // ── Helpers ─────────────────────────────────────────────────────────────────
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
 </script>
 </body>
 </html>
