@@ -15,17 +15,10 @@ Run locally:
     uvicorn app.main:app --reload --port 8000
 """
 
-from app.services.analytics_service import init_metrics_db
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # ── Startup ──
-    init_metrics_db()  
-    
-from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
+from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
