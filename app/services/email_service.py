@@ -2,29 +2,19 @@ from __future__ import annotations
 """
 app/services/email_service.py
 ─────────────────────────────────────────────────────────
-Patient email notification service using Resend.
+Patient email notification service using Gmail SMTP.
 Sends booking confirmations immediately after triage completes.
 Non-fatal — email failure never crashes the booking flow.
 """
 
-import resend
+import smtplib
+import ssl
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+
 from app.core.logger import get_logger
 
 logger = get_logger(__name__)
-
-
-def _get_client() -> bool:
-    """Initialise Resend with API key. Returns True if configured."""
-    try:
-        from app.config import settings
-        if not settings.resend_api_key:
-            logger.warning("RESEND_API_KEY not set — email notifications disabled.")
-            return False
-        resend.api_key = settings.resend_api_key
-        return True
-    except Exception as exc:
-        logger.warning(f"Resend init failed: {exc}")
-        return False
 
 
 def _build_confirmation_html(
@@ -223,7 +213,7 @@ async def send_booking_confirmation(
     doctor_name: str = "Our Optometrist",
 ) -> bool:
     """
-    Send a booking confirmation email to the patient.
+    Send a booking confirmation email via Gmail SMTP.
     Returns True if sent successfully, False otherwise.
     Never raises — email failure is non-fatal.
     """
@@ -231,11 +221,15 @@ async def send_booking_confirmation(
         logger.debug("No valid patient email — skipping confirmation email.")
         return False
 
-    if not _get_client():
-        return False
-
     try:
         from app.config import settings
+
+        gmail_user = settings.gmail_user
+        gmail_password = settings.gmail_app_password
+
+        if not gmail_user or not gmail_password:
+            logger.warning("Gmail credentials not configured — email notifications disabled.")
+            return False
 
         html = _build_confirmation_html(
             patient_name=patient_name,
@@ -250,19 +244,22 @@ async def send_booking_confirmation(
             clinic_phone=settings.clinic_phone,
         )
 
-        params: resend.Emails.SendParams = {
-            "from": f"{settings.clinic_name} <{settings.resend_from_email}>",
-            "to": [patient_email],
-            "subject": f"Appointment Confirmed — {slot_time} | {settings.clinic_name}",
-            "html": html,
-            "reply_to": settings.resend_from_email,
-        }
+        # Build email
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = f"Appointment Confirmed — {slot_time} | {settings.clinic_name}"
+        msg["From"] = f"{settings.clinic_name} <{gmail_user}>"
+        msg["To"] = patient_email
+        msg["Reply-To"] = gmail_user
 
-        response = await resend.Emails.send_async(params)
-        logger.success(
-            f"Confirmation email sent | to={patient_email} "
-            f"| id={response.get('id', 'unknown')}"
-        )
+        msg.attach(MIMEText(html, "html"))
+
+        # Send via Gmail SMTP
+        context = ssl.create_default_context()
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
+            server.login(gmail_user, gmail_password)
+            server.sendmail(gmail_user, patient_email, msg.as_string())
+
+        logger.success(f"Confirmation email sent via Gmail | to={patient_email}")
         return True
 
     except Exception as exc:

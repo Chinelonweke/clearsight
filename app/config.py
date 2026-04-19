@@ -72,6 +72,8 @@ class Settings(BaseSettings):
     # ── Email ───────────────────────────────────────────────
     resend_api_key: str = ""
     resend_from_email: str = "nwekechinelo25@yahoo.com"
+    gmail_user: str = ""
+    gmail_app_password: str = ""
 
     # ── Observability ───────────────────────────────────────
     metrics_db_path: str = "data/metrics.db"
