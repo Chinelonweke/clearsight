@@ -94,27 +94,27 @@ class TTSService:
                     pass
 
     def _synthesize_sync_legacy(self, text: str) -> bytes:
-        """
-        Fallback for older Piper versions that use wave.open() directly.
-        Manually sets WAV parameters before synthesis to avoid 'channels not specified'.
-        """
-        import io
-        import wave
-
+        """Synthesize using new AudioChunk iterable API."""
+        import io, wave, struct
         if not self._voice:
             return b""
-
         try:
+            chunks = list(self._voice.synthesize(text))
+            if not chunks:
+                return b""
+            sample_rate = chunks[0].sample_rate
+            all_samples = []
+            for chunk in chunks:
+                audio = chunk.audio_float_array
+                samples = (audio * 32767).astype('int16')
+                all_samples.extend(samples.tolist())
             buf = io.BytesIO()
-            with wave.open(buf, "wb") as wav_file:
-                # Explicitly set WAV parameters before calling synthesize
-                # Piper uses 16-bit mono at 22050Hz by default
-                wav_file.setnchannels(1)       # mono
-                wav_file.setsampwidth(2)        # 16-bit = 2 bytes
-                wav_file.setframerate(22050)    # 22.05kHz sample rate
-                self._voice.synthesize(text, wav_file)
+            with wave.open(buf, 'wb') as wf:
+                wf.setnchannels(1)
+                wf.setsampwidth(2)
+                wf.setframerate(sample_rate)
+                wf.writeframes(struct.pack('<' + 'h' * len(all_samples), *all_samples))
             return buf.getvalue()
-
         except Exception as exc:
             logger.warning(f"TTS legacy synthesis failed (non-fatal): {exc}")
             return b""
