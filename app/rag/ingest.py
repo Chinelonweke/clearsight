@@ -24,7 +24,7 @@ from app.rag.chroma_client import get_chroma_collection
 logger = get_logger(__name__)
 
 # Path to eye condition markdown files
-DOCS_DIR = Path(__file__).parent.parent.parent / "data" / "eye_conditions"
+DOCS_DIR = Path(__file__).parent.parent.parent / "data" / "knowledge_base"
 EMBED_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 
 
