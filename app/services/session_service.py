@@ -27,12 +27,13 @@ from typing import Any
 
 from redis.asyncio import Redis
 
+from app.config import settings
 from app.core.logger import get_logger
 
 logger = get_logger(__name__)
 
-SESSION_TTL = 6 * 3600          # 6 hours in seconds
-MAX_HISTORY_MESSAGES = 100      # cap history to avoid unbounded memory growth
+SESSION_TTL = settings.session_ttl_seconds
+MAX_HISTORY_MESSAGES = settings.max_history_messages
 
 
 class SessionService:

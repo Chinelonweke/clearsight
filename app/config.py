@@ -80,6 +80,10 @@ class Settings(BaseSettings):
     enable_request_logging: bool = True
     slow_request_threshold_ms: int = 2000
 
+    # ── Session ──────────────────────────────────────────────
+    session_ttl_seconds: int = 21600  # 6 hours
+    max_history_messages: int = 100  # cap history to avoid unbounded memory
+
     @property
     def is_production(self) -> bool:
         return self.app_env == "production"

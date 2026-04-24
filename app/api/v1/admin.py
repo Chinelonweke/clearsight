@@ -108,18 +108,21 @@ async def get_analytics(
 
     # ── 3. Urgency trend over last 7 days ─────────────────────────────────────
     try:
+        seven_days_ago = datetime.now(timezone.utc) - timedelta(days=7)
         trend_result = await db.execute(
-            text("""
-                SELECT 
-                    DATE(a.created_at) as appt_date,
-                    a.urgency_level,
-                    COUNT(*) as count
-                FROM appointments a
-                WHERE a.created_at >= NOW() - INTERVAL '7 days'
-                  AND a.urgency_level IS NOT NULL
-                GROUP BY DATE(a.created_at), a.urgency_level
-                ORDER BY appt_date
-            """)
+            select(
+                func.date(Appointment.created_at).label("appt_date"),
+                Appointment.urgency_level,
+                func.count(Appointment.id).label("count")
+            )
+            .where(
+                and_(
+                    Appointment.created_at >= seven_days_ago,
+                    Appointment.urgency_level.isnot(None)
+                )
+            )
+            .group_by(func.date(Appointment.created_at), Appointment.urgency_level)
+            .order_by(func.date(Appointment.created_at))
         )
         trend_rows = trend_result.all()
         trend_data = {}

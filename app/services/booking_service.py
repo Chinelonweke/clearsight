@@ -6,6 +6,7 @@ from uuid import UUID
 from sqlalchemy import and_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.core.exceptions import (
     BookingNotFoundError,
     DoctorNotFoundError,
@@ -83,14 +84,14 @@ class BookingService:
             logger.info("Slot search: EMERGENCY — next 4 hours")
             return await self.get_available_slots(from_dt=now, to_dt=to_dt)
 
-        elif triage.is_urgent:
-            # End of today at 18:00 UTC
-            today_close = now.replace(hour=17, minute=0, second=0, microsecond=0)
-            if today_close <= now:
-                # After closing — look at tomorrow
-                tomorrow = now + timedelta(days=1)
-                from_dt = tomorrow.replace(hour=8, minute=0, second=0, microsecond=0)
-                to_dt = tomorrow.replace(hour=17, minute=0, second=0, microsecond=0)
+    elif triage.is_urgent:
+        # End of today at closing hour
+        today_close = now.replace(hour=settings.clinic_closing_hour - 1, minute=0, second=0, microsecond=0)
+        if today_close <= now:
+            # After closing — look at tomorrow
+            tomorrow = now + timedelta(days=1)
+            from_dt = tomorrow.replace(hour=settings.clinic_opening_hour, minute=0, second=0, microsecond=0)
+            to_dt = tomorrow.replace(hour=settings.clinic_closing_hour - 1, minute=0, second=0, microsecond=0)
                 logger.info("Slot search: URGENT — tomorrow (after closing hours)")
             else:
                 from_dt = now
@@ -254,9 +255,12 @@ class BookingService:
         doctor_id: UUID,
         days_ahead: int = 14,
         slot_duration_minutes: int = 30,
-        start_hour: int = 8,
-        end_hour: int = 18,
+        start_hour: int | None = None,
+        end_hour: int | None = None,
     ) -> int:
+        # Use clinic settings if not provided
+        start_hour = start_hour or settings.clinic_opening_hour
+        end_hour = end_hour or settings.clinic_closing_hour
         result = await self._db.execute(select(Doctor).where(Doctor.id == doctor_id))
         doctor = result.scalar_one_or_none()
         if not doctor:

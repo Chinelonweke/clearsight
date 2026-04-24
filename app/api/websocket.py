@@ -137,8 +137,8 @@ LANGUAGE: English only."""
 async def _send(ws: WebSocket, msg: dict) -> None:
     try:
         await ws.send_json(msg)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug(f"WebSocket send failed: {exc}")
 
 
 async def _send_error(ws: WebSocket, message: str) -> None:
@@ -149,7 +149,8 @@ async def _tts(tts_svc: TTSService, text: str) -> str:
     try:
         audio = await tts_svc.synthesize(text)
         return base64.b64encode(audio).decode() if audio else ""
-    except Exception:
+    except Exception as exc:
+        logger.warning(f"TTS synthesis failed: {exc}")
         return ""
 
 
@@ -158,8 +159,8 @@ def _get_session_service():
         from app.db.redis_client import get_redis_client
         redis = get_redis_client()
         return SessionService(redis)
-    except Exception:
-        logger.warning("Redis unavailable - using in-memory session fallback.")
+    except Exception as exc:
+        logger.warning(f"Redis unavailable - using in-memory session fallback: {exc}")
         return None
 
 
@@ -661,11 +662,11 @@ async def conversation_endpoint(ws: WebSocket, session_id: str):
     except Exception as exc:
         logger.exception(f"Unexpected WebSocket error | session={session_id}: {exc}")
 
-    finally:
-        try:
-            await session_svc.close_session(session_id, outcome="completed")
-        except Exception:
-            pass
-        await track_event("session_end", session_id=session_id)
+finally:
+    try:
+        await session_svc.close_session(session_id, outcome="completed")
+    except Exception as exc:
+        logger.debug(f"Session close failed (non-fatal): {exc}")
+    await track_event("session_end", session_id=session_id)
         await _send(ws, {"type": "session_closed", "outcome": "completed"})
         logger.info(f"WebSocket session finalised | session={session_id}")
