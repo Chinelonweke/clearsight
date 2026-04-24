@@ -1,161 +1,84 @@
-﻿from __future__ import annotations
-"""
+﻿"""
 app/rag/chunking.py
-─────────────────────────────────────────────────────────
-Semantic chunking strategy for the eye condition knowledge base.
+--------------------------------------------------
+Splits markdown documents into overlapping chunks and embeds them.
 
-Strategy: Sliding-window semantic similarity
+Pipeline:
   1. Split document into sentences.
-  2. Encode each sentence with sentence-transformers (all-MiniLM-L6-v2).
-  3. Compute cosine similarity between adjacent sentences.
-  4. When similarity drops below threshold -> start a new chunk.
-  5. Also enforce a max_sentences guard to prevent runaway chunks.
-
-This outperforms fixed-token chunking for medical text because:
-  - Clinical paragraphs have variable lengths.
-  - Symptom lists, triage guidance, and risk factors are semantically
-    distinct sections -- they should be separate chunks.
-  - A query like "symptoms of glaucoma" should retrieve the Symptoms
-    section, not a fragment that crosses into Triage guidance.
-
-Typical output: 150-400 tokens per chunk, ~8-20 chunks per condition file.
+  2. Group sentences into overlapping chunks (~200 tokens each).
+  3. Encode each chunk with fastembed (all-MiniLM-L6-v2, ONNX).
+     Produces identical 384-dim vectors to sentence-transformers.
 """
+
+from __future__ import annotations
 
 import re
-from typing import List
-
-import numpy as np
+from typing import Iterator
 
 from app.core.logger import get_logger
 
 logger = get_logger(__name__)
 
-# Lazy-load to avoid slow import at module level (sentence-transformers takes ~2s)
+# Chunk configuration
+CHUNK_SIZE = 5        # sentences per chunk
+CHUNK_OVERLAP = 2     # sentences of overlap between chunks
+
+# Module-level model cache
 _embed_model = None
 
 
 def _get_embed_model():
+    """Lazy-load fastembed model to avoid slow import at module level."""
     global _embed_model
     if _embed_model is None:
-        from sentence_transformers import SentenceTransformer  # type: ignore
-        logger.info("Loading sentence-transformers model (all-MiniLM-L6-v2)...")
-        _embed_model = SentenceTransformer("all-MiniLM-L6-v2")
-        logger.success("Sentence-transformers model loaded.")
+        from fastembed import TextEmbedding  # type: ignore
+        logger.info("Loading fastembed model (all-MiniLM-L6-v2)...")
+        _embed_model = TextEmbedding(model_name="sentence-transformers/all-MiniLM-L6-v2")
+        logger.success("fastembed model loaded.")
     return _embed_model
 
 
-def _split_sentences(text: str) -> List[str]:
-    """
-    Split markdown text into sentences, preserving bullet-point items
-    as individual units (each bullet = one sentence unit for chunking).
-    """
-    text = re.sub(r"\r\n", "\n", text)
-    sentences: List[str] = []
-    for line in text.split("\n"):
-        line = line.strip()
-        if not line:
-            continue
-        if line.startswith("#"):
-            sentences.append(line)
-            continue
-        if line.startswith(("-", "*", ".")):
-            sentences.append(line)
-            continue
-        parts = re.split(r"(?<=[.!?])\s+", line)
-        sentences.extend(p.strip() for p in parts if p.strip())
-    return sentences
+def _split_sentences(text: str) -> list[str]:
+    """Split text into sentences on . ! ? boundaries."""
+    sentences = re.split(r'(?<=[.!?])\s+', text.strip())
+    return [s.strip() for s in sentences if s.strip()]
 
 
-def _cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
-    denom = np.linalg.norm(a) * np.linalg.norm(b)
-    if denom == 0:
-        return 0.0
-    return float(np.dot(a, b) / denom)
-
-
-def semantic_chunk(
-    text: str,
-    similarity_threshold: float = 0.45,
-    max_sentences_per_chunk: int = 12,
-    min_chunk_length: int = 80,
-) -> List[str]:
-    sentences = _split_sentences(text)
-
-    if len(sentences) == 0:
-        logger.warning("Document produced zero sentences after splitting.")
-        return []
-
-    if len(sentences) == 1:
-        return sentences
-
-    model = _get_embed_model()
-    embeddings: np.ndarray = model.encode(sentences, show_progress_bar=False)
-
-    chunks: List[str] = []
-    current_sentences: List[str] = [sentences[0]]
-
-    for i in range(1, len(sentences)):
-        sim = _cosine_similarity(embeddings[i - 1], embeddings[i])
-        at_max = len(current_sentences) >= max_sentences_per_chunk
-        is_heading = sentences[i].startswith("#")
-
-        if sim < similarity_threshold or at_max or is_heading:
-            chunk_text = " ".join(current_sentences).strip()
-            if len(chunk_text) >= min_chunk_length:
-                chunks.append(chunk_text)
-            current_sentences = [sentences[i]]
-        else:
-            current_sentences.append(sentences[i])
-
-    if current_sentences:
-        chunk_text = " ".join(current_sentences).strip()
-        if len(chunk_text) >= min_chunk_length:
-            chunks.append(chunk_text)
-
-    logger.debug(
-        f"Semantic chunking | sentences={len(sentences)} -> chunks={len(chunks)}"
-    )
+def _make_chunks(sentences: list[str]) -> list[str]:
+    """Group sentences into overlapping chunks."""
+    chunks = []
+    i = 0
+    while i < len(sentences):
+        chunk = sentences[i: i + CHUNK_SIZE]
+        chunks.append(" ".join(chunk))
+        i += CHUNK_SIZE - CHUNK_OVERLAP
     return chunks
 
 
-def chunk_document_with_metadata(
-    text: str,
-    source_file: str,
-    condition_name: str,
-) -> List[dict]:
-    chunks = semantic_chunk(text)
+def chunk_document(text: str, doc_id: str) -> list[dict]:
+    """
+    Split a document into chunks and embed each one.
+
+    Returns:
+        List of dicts with keys: id, text, embedding
+    """
+    sentences = _split_sentences(text)
+    if not sentences:
+        return []
+
+    chunks = _make_chunks(sentences)
+    model = _get_embed_model()
+
+    # fastembed.embed() accepts a list and returns a generator
+    embeddings = list(model.embed(chunks))
+
     results = []
-    for i, chunk in enumerate(chunks):
-        section = _detect_section(chunk, text)
+    for i, (chunk_text, embedding) in enumerate(zip(chunks, embeddings)):
         results.append({
-            "text": chunk,
-            "source": source_file,
-            "condition": condition_name,
-            "chunk_index": i,
-            "section": section,
-            "char_count": len(chunk),
+            "id": f"{doc_id}_chunk_{i}",
+            "text": chunk_text,
+            "embedding": embedding.tolist(),
         })
+
+    logger.debug(f"Chunked {doc_id} into {len(results)} chunks.")
     return results
-
-
-def _detect_section(chunk: str, full_text: str) -> str:
-    for line in chunk.split():
-        if line.startswith("##"):
-            return line.lstrip("#").strip()
-
-    keywords = {
-        "symptoms": "Symptoms",
-        "triage": "Triage guidance",
-        "risk factor": "Risk factors",
-        "overview": "Overview",
-        "type": "Types",
-        "treatment": "Treatment",
-        "differential": "Differential diagnoses",
-        "what the ai": "AI questions",
-        "clinical note": "Clinical notes",
-    }
-    chunk_lower = chunk.lower()
-    for kw, label in keywords.items():
-        if kw in chunk_lower:
-            return label
-    return "General"

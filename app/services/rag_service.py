@@ -1,168 +1,104 @@
-﻿from __future__ import annotations
-"""
+﻿"""
 app/services/rag_service.py
-â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-RAG (Retrieval-Augmented Generation) service.
+--------------------------------------------------
+RAG retrieval service.
+1. Embed the patient query with fastembed (all-MiniLM-L6-v2, ONNX).
+2. Query ChromaDB for the top-k most relevant eye condition chunks.
+3. Return the chunks as context for the LLM.
 
-At query time:
-  1. Embed the patient's query with sentence-transformers.
-  2. Retrieve the top-k most semantically similar chunks from ChromaDB.
-  3. Return the chunk texts for injection into the LLM system prompt.
-
-The RAG service does NOT call the LLM â€” it only retrieves.
-The LLMService.chat_with_context() method handles injection.
-
-Usage:
-    rag = RAGService()
-    chunks = await rag.retrieve("sudden loss of vision left eye", top_k=3)
-    # Returns list of relevant text excerpts from the knowledge base
+fastembed produces identical 384-dim vectors to sentence-transformers
+for the same model - no re-ingestion needed if vectors were already
+created with all-MiniLM-L6-v2.
 """
 
-from typing import List, Optional
+from __future__ import annotations
+
 import asyncio
-from app.core.exceptions import RAGError
+from typing import Optional
+
 from app.core.logger import get_logger
-from app.rag.chroma_client import get_collection
 
 logger = get_logger(__name__)
 
-# Lazy-load to avoid slow import at startup
+# Module-level model cache - loaded once, reused across requests
 _embed_model = None
 
 
 def _get_embed_model():
+    """Lazy-load fastembed model (ONNX, no PyTorch required)."""
     global _embed_model
     if _embed_model is None:
-        from sentence_transformers import SentenceTransformer  # type: ignore
-        _embed_model = SentenceTransformer("all-MiniLM-L6-v2")
+        try:
+            from fastembed import TextEmbedding  # type: ignore
+            logger.info("Loading fastembed model (all-MiniLM-L6-v2)...")
+            _embed_model = TextEmbedding(model_name="sentence-transformers/all-MiniLM-L6-v2")
+            logger.success("fastembed model loaded (384-dim ONNX).")
+        except Exception as exc:
+            logger.error(f"Failed to load fastembed model: {exc}")
+            raise
     return _embed_model
+
+
+def _embed_query(text: str) -> list[float]:
+    """
+    Embed a query string into a 384-dimensional vector using fastembed.
+    fastembed.embed() returns a generator of numpy arrays.
+    """
+    model = _get_embed_model()
+    embeddings = list(model.embed([text]))  # returns list of np.ndarray
+    return embeddings[0].tolist()
 
 
 class RAGService:
     """
-    Async retrieval from ChromaDB for clinical context augmentation.
+    Retrieval-Augmented Generation service.
+    Embeds patient queries and retrieves relevant eye condition context
+    from ChromaDB to ground the LLM responses.
     """
 
     def __init__(self) -> None:
+        from app.rag.chroma_client import get_chroma_collection
+        self._collection = get_chroma_collection()
         logger.info("RAGService initialised.")
-
-    def _embed_query(self, query: str) -> list[float]:
-        """Embed a query string into a vector using sentence-transformers."""
-        model = _get_embed_model()
-        vector = model.encode([query], show_progress_bar=False)[0]
-        return vector.tolist()
 
     async def retrieve(
         self,
         query: str,
         top_k: int = 3,
-        condition_filter: Optional[str] = None,
-        section_filter: Optional[str] = None,
-        min_relevance_threshold: float = 0.3,
-    ) -> List[str]:
+    ) -> list[str]:
         """
-        Retrieve the most relevant clinical knowledge chunks for a patient query.
+        Retrieve the top-k most relevant chunks for a given query.
 
         Args:
-            query:                  Patient symptoms text or triage question.
-            top_k:                  Number of chunks to retrieve.
-            condition_filter:       Restrict retrieval to a specific condition
-                                    (e.g. "Glaucoma"). Use when condition is known.
-            section_filter:         Restrict to a section type (e.g. "Triage guidance").
-            min_relevance_threshold: Discard chunks with cosine distance > this.
-                                    ChromaDB returns distance (lower = more similar).
-                                    0.3 threshold means distance < 0.7.
+            query:  Patient message or symptom description.
+            top_k:  Number of chunks to return.
 
         Returns:
-            List of chunk text strings, ordered by relevance (most relevant first).
-            Returns empty list if ChromaDB is not available or no results found.
+            List of text chunks to use as LLM context.
         """
-        if not query.strip():
+        if not query or not query.strip():
             return []
 
         try:
-            collection = get_collection()
-        except RuntimeError as exc:
-            logger.warning(f"RAG unavailable: {exc}")
-            return []
-
-        # Build optional metadata filter
-        where_filter: dict | None = None
-        if condition_filter and section_filter:
-            where_filter = {
-                "$and": [
-                    {"condition": condition_filter},
-                    {"section": section_filter},
-                ]
-            }
-        elif condition_filter:
-            where_filter = {"condition": condition_filter}
-        elif section_filter:
-            where_filter = {"section": section_filter}
-
-        try:
-            loop = asyncio.get_event_loop()
-
-            # Embed the query in a thread executor (sentence-transformers is sync)
-            query_vector = await loop.run_in_executor(None, self._embed_query, query)
-
-            query_kwargs = {
-                "query_embeddings": [query_vector],
-                "n_results": top_k,
-                "include": ["documents", "distances", "metadatas"],
-            }
-            if where_filter:
-                query_kwargs["where"] = where_filter
-
-            results = await collection.query(**query_kwargs)
-
-            documents = results.get("documents", [[]])[0]
-            distances = results.get("distances", [[]])[0]
-            metadatas = results.get("metadatas", [[]])[0]
-
-            # Filter by relevance threshold
-            # ChromaDB cosine distance: 0 = identical, 1 = opposite
-            filtered_chunks = []
-            for doc, dist, meta in zip(documents, distances, metadatas):
-                if dist <= (1.0 - min_relevance_threshold):
-                    filtered_chunks.append(doc)
-                    logger.debug(
-                        f"RAG hit | condition={meta.get('condition')} "
-                        f"| section={meta.get('section')} "
-                        f"| distance={dist:.3f}"
-                    )
-                else:
-                    logger.debug(f"RAG chunk filtered out | distance={dist:.3f}")
-
-            logger.info(
-                f"RAG retrieval | query={query[:50]!r} | "
-                f"retrieved={len(filtered_chunks)}/{top_k}"
+            # Embed in thread executor - fastembed is synchronous
+            loop = asyncio.get_running_loop()
+            query_embedding = await loop.run_in_executor(
+                None, _embed_query, query.strip()
             )
-            return filtered_chunks
+
+            results = self._collection.query(
+                query_embeddings=[query_embedding],
+                n_results=min(top_k, self._collection.count() or 1),
+                include=["documents"],
+            )
+
+            docs = results.get("documents", [[]])[0]
+            logger.debug(
+                f"RAG retrieved {len(docs)} chunks | "
+                f"query={query[:50]!r}"
+            )
+            return docs
 
         except Exception as exc:
-            logger.error(f"RAG retrieval failed: {exc}")
-            raise RAGError(message=str(exc)) from exc
-
-    async def retrieve_for_triage(self, symptoms_text: str) -> List[str]:
-        """
-        Convenience method: retrieve broader context (top 4) for triage assessment.
-        Uses a slightly lower threshold to cast a wider net.
-        """
-        return await self.retrieve(
-            query=symptoms_text,
-            top_k=4,
-            min_relevance_threshold=0.25,
-        )
-
-    async def retrieve_triage_guidance(self, condition_name: str) -> List[str]:
-        """
-        Retrieve the triage guidance section for a specific diagnosed condition.
-        Used after triage scoring to get detailed guidance text.
-        """
-        return await self.retrieve(
-            query=f"triage guidance {condition_name}",
-            top_k=2,
-            condition_filter=condition_name,
-            section_filter="Triage guidance",
-        )
+            logger.warning(f"RAG retrieval failed (non-fatal): {exc}")
+            return []
