@@ -57,7 +57,7 @@ def _get_triage_prompt() -> str:
     return f"""You are ClearSight, a warm, professional AI triage assistant at a Nigerian eye clinic.
 You speak clearly and warmly. Your name is ClearSight.
 
-CLINIC INFORMATION (use ONLY these exact details — never invent any):
+CLINIC INFORMATION (use ONLY these exact details ï¿½ never invent any):
 - Clinic name: {settings.clinic_name}
 - Clinic phone: {settings.clinic_phone}
 - Clinic address: {settings.clinic_address}
@@ -65,7 +65,7 @@ CLINIC INFORMATION (use ONLY these exact details — never invent any):
 
 YOUR CONVERSATION GOALS (follow this order strictly):
 1. GREETING: Welcome the patient. Ask for their full name, age, phone number, gender and email address.
-2. SYMPTOM COLLECTION: Ask about their eye problem — one question at a time.
+2. SYMPTOM COLLECTION: Ask about their eye problem ï¿½ one question at a time.
    Cover ALL of: which eye, what symptom, how long, pain level (0-10), family history,
    any vision changes, visited eye clinic before.
    Wait for each answer before asking the next question.
@@ -79,15 +79,15 @@ YOUR CONVERSATION GOALS (follow this order strictly):
    Do NOT change a confirmed booking.
 5. CLOSING: Thank the patient and give care instructions appropriate to their urgency level.
 
-CRITICAL RULES — NEVER BREAK THESE:
+CRITICAL RULES ï¿½ NEVER BREAK THESE:
 - NEVER diagnose the patient. Never say "you have X" or "this is X condition".
 - If the patient asks what is wrong, what condition they have, or for any diagnosis,
-  always say: "I'm not able to diagnose — only a qualified optometrist can do that after
+  always say: "I'm not able to diagnose ï¿½ only a qualified optometrist can do that after
   examining you in person. Your appointment is booked so the doctor will assess you properly."
 - NEVER invent clinic information. Only use the CLINIC INFORMATION above.
 - Keep each response under 40 words.
 - Ask only ONE question per turn.
-- Be empathetic — patients may be anxious.
+- Be empathetic ï¿½ patients may be anxious.
 - If patient mentions chemical in eye: "This is an emergency. Please wash your eye with
   water NOW and go to the nearest clinic immediately." Then output: [EMERGENCY_CHEMICAL]
 
@@ -119,7 +119,7 @@ def _get_session_service():
         redis = get_redis_client()
         return SessionService(redis)
     except Exception:
-        logger.warning("Redis unavailable — using in-memory session fallback.")
+        logger.warning("Redis unavailable ï¿½ using in-memory session fallback.")
         return None
 
 
@@ -323,14 +323,14 @@ async def conversation_endpoint(ws: WebSocket, session_id: str):
                 meta_stage = meta.get("stage", "")
                 if meta_stage in ("done", "booking"):
                     no_diagnosis_msg = (
-                        "I'm not able to provide a diagnosis — only a qualified optometrist "
+                        "I'm not able to provide a diagnosis ï¿½ only a qualified optometrist "
                         "can do that after a proper in-person examination. "
                         "Your appointment is already booked. The doctor will assess and "
                         "explain your condition when you visit."
                     )
                 else:
                     no_diagnosis_msg = (
-                        "I'm not able to diagnose eye conditions — that requires a qualified "
+                        "I'm not able to diagnose eye conditions ï¿½ that requires a qualified "
                         "optometrist examining you in person. "
                         "I'm here to assess the urgency of your symptoms and book you an "
                         "appointment so the right doctor can help you."
@@ -404,7 +404,7 @@ async def conversation_endpoint(ws: WebSocket, session_id: str):
                 triage_triggered = True
                 await session_svc.set_stage(session_id, "triage")
 
-                # Immediate feedback — no silence gap
+                # Immediate feedback ï¿½ no silence gap
                 thinking_msg = "Analysing your symptoms now, please hold for just a moment..."
                 await session_svc.append_message(session_id, "assistant", thinking_msg)
                 await _send(ws, {
@@ -515,7 +515,7 @@ async def conversation_endpoint(ws: WebSocket, session_id: str):
                     if slot_time:
                         if triage_result.is_routine:
                             booking_msg = (
-                                f"Assessment complete — urgency is ROUTINE "
+                                f"Assessment complete ï¿½ urgency is ROUTINE "
                                 f"({triage_result.urgency_score}/10). "
                                 f"I've provisionally booked you for {slot_time} "
                                 f"with {doctor_name}. "
@@ -524,7 +524,7 @@ async def conversation_endpoint(ws: WebSocket, session_id: str):
                             )
                         else:
                             booking_msg = (
-                                f"Assessment complete — urgency is "
+                                f"Assessment complete ï¿½ urgency is "
                                 f"{triage_result.urgency_level.upper()}. "
                                 f"I've booked your appointment for {slot_time} "
                                 f"with {doctor_name}. "
