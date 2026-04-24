@@ -464,8 +464,8 @@ Access at `/staff`. Two login roles:
 
 | Role | Username | Password | Access |
 |---|---|---|---|
-| Doctor | `dr.ijeoma` | `clinic123` | Own patients only |
-| Doctor | `dr.adaeze` | `clinic123` | Own patients only |
+| Doctor | `dr.ijeoma` | `xxxxxxxx` | Own patients only |
+| Doctor | `dr.adaeze` | `xxxxxxx` | Own patients only |
 | Admin | `Nelo` | (from .env) | All patients + workload view |
 
 **Features:**
@@ -544,6 +544,7 @@ python -m app.rag.ingest --reset
 
 **Chinelo Nweke** — AI Engineer  
 Built for the ClearSight Eye Clinic, Kubwa, Abuja, Nigeria.
+App link: https://clearsightclinic.online/
 
 ---
 
