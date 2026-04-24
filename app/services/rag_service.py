@@ -57,7 +57,7 @@ class RAGService:
     """
 
     def __init__(self) -> None:
-        from app.rag.chroma_client import get_chroma_collection
+        from app.rag.chroma_client import get_collection as get_chroma_collection
         self._collection = get_chroma_collection()
         logger.info("RAGService initialised.")
 
