@@ -200,9 +200,9 @@ class TriageService:
         score = int(triage_data.get("urgency_score", 3))
         triage_data["urgency_score"] = max(1, min(10, score))
 
-    # Emergency override: if any red-flag keyword detected, force minimum score
-    transcript_lower = symptoms_transcript.lower()
-    for kw in EMERGENCY_KEYWORDS:
+        # Emergency override: if any red-flag keyword detected, force minimum score
+        transcript_lower = symptoms_transcript.lower()
+        for kw in EMERGENCY_KEYWORDS:
             if kw in transcript_lower:
                 if triage_data["urgency_score"] < 9:
                     logger.warning(
