@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import asyncio
 import base64
@@ -57,7 +57,7 @@ def _get_triage_prompt() -> str:
     return f"""You are ClearSight, a warm, professional AI triage assistant at a Nigerian eye clinic.
 You speak clearly and warmly. Your name is ClearSight.
 
-CLINIC INFORMATION (use ONLY these exact details — never invent any):
+CLINIC INFORMATION (use ONLY these exact details � never invent any):
 - Clinic name: {settings.clinic_name}
 - Clinic phone: {settings.clinic_phone}
 - Clinic address: {settings.clinic_address}
@@ -65,27 +65,29 @@ CLINIC INFORMATION (use ONLY these exact details — never invent any):
 
 YOUR CONVERSATION GOALS (follow this order strictly):
 1. GREETING: Welcome the patient. Ask for their full name, age, phone number, gender and email address.
-2. SYMPTOM COLLECTION: Ask about their eye problem — one question at a time.
+2. SYMPTOM COLLECTION: Ask about their eye problem � one question at a time.
    Cover ALL of: which eye, what symptom, how long, pain level (0-10), family history,
    any vision changes, visited eye clinic before.
    Wait for each answer before asking the next question.
 3. TRIAGE: After collecting ALL symptom fields (at least 6 patient responses), say:
    "Thank you for sharing that. Let me assess your situation."
-   Then output exactly this tag on its own line: [READY_FOR_TRIAGE]
+   Only output [READY_FOR_TRIAGE] on its own line AFTER the patient has answered ALL questions.
+   NEVER output [READY_FOR_TRIAGE] in the same message as a question.
+   The vision changes question MUST be asked AND answered before triggering triage.
 4. BOOKING: The system will book automatically. When given a slot time, confirm it to the patient.
    Do NOT suggest or mention any time before the system provides one.
    Do NOT change a confirmed booking.
 5. CLOSING: Thank the patient and give care instructions appropriate to their urgency level.
 
-CRITICAL RULES — NEVER BREAK THESE:
+CRITICAL RULES � NEVER BREAK THESE:
 - NEVER diagnose the patient. Never say "you have X" or "this is X condition".
 - If the patient asks what is wrong, what condition they have, or for any diagnosis,
-  always say: "I'm not able to diagnose — only a qualified optometrist can do that after
+  always say: "I'm not able to diagnose � only a qualified optometrist can do that after
   examining you in person. Your appointment is booked so the doctor will assess you properly."
 - NEVER invent clinic information. Only use the CLINIC INFORMATION above.
 - Keep each response under 40 words.
 - Ask only ONE question per turn.
-- Be empathetic — patients may be anxious.
+- Be empathetic � patients may be anxious.
 - If patient mentions chemical in eye: "This is an emergency. Please wash your eye with
   water NOW and go to the nearest clinic immediately." Then output: [EMERGENCY_CHEMICAL]
 
@@ -117,7 +119,7 @@ def _get_session_service():
         redis = get_redis_client()
         return SessionService(redis)
     except Exception:
-        logger.warning("Redis unavailable — using in-memory session fallback.")
+        logger.warning("Redis unavailable � using in-memory session fallback.")
         return None
 
 
@@ -183,7 +185,7 @@ async def conversation_endpoint(ws: WebSocket, session_id: str):
     triage_triggered = False
 
     try:
-        # ── Greeting ──────────────────────────────────────────────────────────
+        # -- Greeting ----------------------------------------------------------
         greeting = (
             "Hello! I'm ClearSight, your eye clinic assistant. "
             "I'm here to help assess your eye concern and book you an appointment. "
@@ -196,7 +198,7 @@ async def conversation_endpoint(ws: WebSocket, session_id: str):
             "audio": await _tts(tts_svc, greeting),
         })
 
-        # ── Main loop ──────────────────────────────────────────────────────────
+        # -- Main loop ----------------------------------------------------------
         while True:
             try:
                 data = await asyncio.wait_for(ws.receive_json(), timeout=300)
@@ -213,7 +215,7 @@ async def conversation_endpoint(ws: WebSocket, session_id: str):
             if msg_type == "end_session":
                 break
 
-            # ── Image ──────────────────────────────────────────────────────────
+            # -- Image ----------------------------------------------------------
             if msg_type == "image":
                 t_start = time.perf_counter()
                 try:
@@ -258,7 +260,7 @@ async def conversation_endpoint(ws: WebSocket, session_id: str):
                     )
                 continue
 
-            # ── Audio / Text ───────────────────────────────────────────────────
+            # -- Audio / Text ---------------------------------------------------
             user_input = ""
 
             if msg_type == "audio":
@@ -286,10 +288,10 @@ async def conversation_endpoint(ws: WebSocket, session_id: str):
             if not user_input:
                 continue
 
-            # ── Store message ──────────────────────────────────────────────────
+            # -- Store message --------------------------------------------------
             await session_svc.append_message(session_id, "user", user_input)
 
-            # ── Extract and store patient email ────────────────────────────────
+            # -- Extract and store patient email --------------------------------
             email_match = _EMAIL_RE.search(user_input)
             if email_match:
                 await session_svc.update_metadata(
@@ -297,7 +299,7 @@ async def conversation_endpoint(ws: WebSocket, session_id: str):
                 )
                 logger.debug(f"Patient email captured | email={email_match.group(0)}")
 
-            # ── Extract patient name ───────────────────────────────────────────
+            # -- Extract patient name -------------------------------------------
             import re as _re2
             name_match = _re2.search(
                 r'(?:full\s*name\s*[:\-]?\s*)([A-Za-z]+(?:\s+[A-Za-z]+)+)',
@@ -310,25 +312,25 @@ async def conversation_endpoint(ws: WebSocket, session_id: str):
                 )
                 logger.debug(f"Patient name captured | name={extracted_name}")
 
-            # ── Get history + meta ─────────────────────────────────────────────
+            # -- Get history + meta ---------------------------------------------
             history = await session_svc.get_history(session_id)
             meta = await session_svc.get_metadata(session_id)
             turn_count = meta.get("message_count", 0)
 
-            # ── Diagnosis question interception ────────────────────────────────
+            # -- Diagnosis question interception --------------------------------
             # Handle before LLM so we never risk the AI attempting to diagnose
             if _is_diagnosis_question(user_input):
                 meta_stage = meta.get("stage", "")
                 if meta_stage in ("done", "booking"):
                     no_diagnosis_msg = (
-                        "I'm not able to provide a diagnosis — only a qualified optometrist "
+                        "I'm not able to provide a diagnosis � only a qualified optometrist "
                         "can do that after a proper in-person examination. "
                         "Your appointment is already booked. The doctor will assess and "
                         "explain your condition when you visit."
                     )
                 else:
                     no_diagnosis_msg = (
-                        "I'm not able to diagnose eye conditions — that requires a qualified "
+                        "I'm not able to diagnose eye conditions � that requires a qualified "
                         "optometrist examining you in person. "
                         "I'm here to assess the urgency of your symptoms and book you an "
                         "appointment so the right doctor can help you."
@@ -342,7 +344,7 @@ async def conversation_endpoint(ws: WebSocket, session_id: str):
                 logger.debug(f"Diagnosis question intercepted | session={session_id}")
                 continue
 
-            # ── Emergency fast-path ────────────────────────────────────────────
+            # -- Emergency fast-path --------------------------------------------
             emergency_words = ["chemical", "acid", "lime", "bleach", "cement"]
             if any(w in user_input.lower() for w in emergency_words):
                 emergency_msg = (
@@ -364,7 +366,7 @@ async def conversation_endpoint(ws: WebSocket, session_id: str):
                 )
                 continue
 
-            # ── LLM response ───────────────────────────────────────────────────
+            # -- LLM response ---------------------------------------------------
             try:
                 context_chunks = await rag_svc.retrieve(user_input, top_k=2)
                 reply_text = await llm_svc.chat_with_context(
@@ -397,12 +399,12 @@ async def conversation_endpoint(ws: WebSocket, session_id: str):
                     "audio": await _tts(tts_svc, reply_clean),
                 })
 
-            # ── Triage + booking pipeline ──────────────────────────────────────
+            # -- Triage + booking pipeline --------------------------------------
             if triage_now and not triage_triggered:
                 triage_triggered = True
                 await session_svc.set_stage(session_id, "triage")
 
-                # Immediate feedback — no silence gap
+                # Immediate feedback � no silence gap
                 thinking_msg = "Analysing your symptoms now, please hold for just a moment..."
                 await session_svc.append_message(session_id, "assistant", thinking_msg)
                 await _send(ws, {
@@ -432,7 +434,7 @@ async def conversation_endpoint(ws: WebSocket, session_id: str):
                     await _send(ws, {"type": "triage_result", "data": triage_result.to_dict()})
                     await session_svc.set_stage(session_id, "booking")
 
-                    # ── Create patient + book slot (all inside ONE session) ────
+                    # -- Create patient + book slot (all inside ONE session) ----
                     appointment_id = None
                     slot_time = None
                     doctor_name = "Our Optometrist"
@@ -495,7 +497,7 @@ async def conversation_endpoint(ws: WebSocket, session_id: str):
 
                         await db.commit()
 
-                    # ── Send confirmation email in background ──────────────────
+                    # -- Send confirmation email in background ------------------
                     if slot_time:
                         patient_email = session_meta.get("patient_email", "")
                         asyncio.create_task(send_booking_confirmation(
@@ -509,11 +511,11 @@ async def conversation_endpoint(ws: WebSocket, session_id: str):
                             doctor_name=doctor_name,
                         ))
 
-                    # ── Build booking confirmation message ─────────────────────
+                    # -- Build booking confirmation message ---------------------
                     if slot_time:
                         if triage_result.is_routine:
                             booking_msg = (
-                                f"Assessment complete — urgency is ROUTINE "
+                                f"Assessment complete � urgency is ROUTINE "
                                 f"({triage_result.urgency_score}/10). "
                                 f"I've provisionally booked you for {slot_time} "
                                 f"with {doctor_name}. "
@@ -522,7 +524,7 @@ async def conversation_endpoint(ws: WebSocket, session_id: str):
                             )
                         else:
                             booking_msg = (
-                                f"Assessment complete — urgency is "
+                                f"Assessment complete � urgency is "
                                 f"{triage_result.urgency_level.upper()}. "
                                 f"I've booked your appointment for {slot_time} "
                                 f"with {doctor_name}. "
@@ -577,7 +579,7 @@ async def conversation_endpoint(ws: WebSocket, session_id: str):
                         "audio": await _tts(tts_svc, booking_msg),
                     })
 
-                    # ── Persist intake form ────────────────────────────────────
+                    # -- Persist intake form ------------------------------------
                     try:
                         async with AsyncSessionLocal() as db2:
                             intake_svc = IntakeService(llm=llm_svc, db=db2)
