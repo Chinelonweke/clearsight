@@ -384,9 +384,9 @@ async def conversation_endpoint(ws: WebSocket, session_id: str):
                 logger.debug(f"Diagnosis question intercepted | session={session_id}")
                 continue
 
-        # -- Emergency fast-path --------------------------------------------
-        from app.services.triage_service import EMERGENCY_KEYWORDS
-        if any(w in user_input.lower() for w in EMERGENCY_KEYWORDS):
+            # -- Emergency fast-path --------------------------------------------
+            from app.services.triage_service import EMERGENCY_KEYWORDS
+            if any(w in user_input.lower() for w in EMERGENCY_KEYWORDS):
                 emergency_msg = (
                     "This sounds like a chemical eye emergency! "
                     "Please flush your eye with clean water IMMEDIATELY and continuously. "
@@ -662,11 +662,11 @@ async def conversation_endpoint(ws: WebSocket, session_id: str):
     except Exception as exc:
         logger.exception(f"Unexpected WebSocket error | session={session_id}: {exc}")
 
-finally:
-    try:
-        await session_svc.close_session(session_id, outcome="completed")
-    except Exception as exc:
-        logger.debug(f"Session close failed (non-fatal): {exc}")
-    await track_event("session_end", session_id=session_id)
+    finally:
+        try:
+            await session_svc.close_session(session_id, outcome="completed")
+        except Exception as exc:
+            logger.debug(f"Session close failed (non-fatal): {exc}")
+        await track_event("session_end", session_id=session_id)
         await _send(ws, {"type": "session_closed", "outcome": "completed"})
         logger.info(f"WebSocket session finalised | session={session_id}")
