@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 """
 app/services/triage_service.py
 Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
@@ -26,6 +26,13 @@ from app.services.llm_service import LLMService
 from app.services.rag_service import RAGService
 
 logger = get_logger(__name__)
+
+# Emergency keywords for fast-path detection
+EMERGENCY_KEYWORDS = [
+    "chemical", "acid", "lime", "bleach", "cement", "explosion",
+    "curtain", "shadow across vision", "sudden total blindness",
+    "penetrating", "stabbed", "nail", "metal in eye",
+]
 
 # Ã¢â€â‚¬Ã¢â€â‚¬ Triage system prompt Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 # Deliberately low temperature (0.05) Ã¢â‚¬â€ we need consistent, reproducible scoring.
@@ -193,14 +200,9 @@ class TriageService:
         score = int(triage_data.get("urgency_score", 3))
         triage_data["urgency_score"] = max(1, min(10, score))
 
-        # Emergency override: if any red-flag keyword detected, force minimum score
-        transcript_lower = symptoms_transcript.lower()
-        emergency_keywords = [
-            "chemical", "acid", "lime", "bleach", "cement", "explosion",
-            "curtain", "shadow across vision", "sudden total blindness",
-            "penetrating", "stabbed", "nail", "metal in eye",
-        ]
-        for kw in emergency_keywords:
+    # Emergency override: if any red-flag keyword detected, force minimum score
+    transcript_lower = symptoms_transcript.lower()
+    for kw in EMERGENCY_KEYWORDS:
             if kw in transcript_lower:
                 if triage_data["urgency_score"] < 9:
                     logger.warning(

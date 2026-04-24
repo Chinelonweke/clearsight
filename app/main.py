@@ -29,7 +29,7 @@ from app.core.middleware import ErrorHandlingMiddleware, RequestTimingMiddleware
 from app.db.neon import dispose_db, init_db
 from app.db.redis_client import close_redis, init_redis
 from app.rag.chroma_client import init_chroma
-from app.services.analytics_service import init_metrics_db
+from app.services.analytics_service import init_metrics_db, track_event
 
 
 logger = get_logger(__name__)
@@ -54,6 +54,7 @@ async def lifespan(app: FastAPI):
 
     await init_db()
     await init_redis()
+    init_metrics_db()
 
     try:
         await init_chroma()

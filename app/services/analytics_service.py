@@ -77,23 +77,25 @@ def _write_event_sync(
     success: bool,
     metadata: dict,
 ) -> None:
-    """Synchronous SQLite write â€” called in thread executor."""
+    """Synchronous SQLite write — called in thread executor."""
     conn = sqlite3.connect(_DB_PATH)
-    conn.execute(
-        """INSERT INTO events
-           (event_type, session_id, patient_id, duration_ms, success, metadata)
-           VALUES (?, ?, ?, ?, ?, ?)""",
-        (
-            event_type,
-            session_id,
-            patient_id,
-            duration_ms,
-            1 if success else 0,
-            json.dumps(metadata),
-        ),
-    )
-    conn.commit()
-    conn.close()
+    try:
+        conn.execute(
+            """INSERT INTO events
+            (event_type, session_id, patient_id, duration_ms, success, metadata)
+            VALUES (?, ?, ?, ?, ?, ?)""",
+            (
+                event_type,
+                session_id,
+                patient_id,
+                duration_ms,
+                1 if success else 0,
+                json.dumps(metadata),
+            ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
 
 
 async def track_event(

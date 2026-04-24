@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import asyncio
 import base64
@@ -31,7 +31,6 @@ from app.models.doctor import AvailabilitySlot, Doctor as DoctorModel
 logger = get_logger(__name__)
 router = APIRouter(tags=["WebSocket"])
 
-_MIN_TURNS_FOR_TRIAGE = 6
 _EMAIL_RE = _re.compile(r'[\w.\-+]+@[\w.\-]+\.[a-zA-Z]{2,}')
 
 # Keywords that indicate a patient is asking for a diagnosis
@@ -216,9 +215,9 @@ async def conversation_endpoint(ws: WebSocket, session_id: str):
 
     try:
         if not await session_svc.session_exists(session_id):
-            await session_svc.create_session()
-    except Exception:
-        pass
+            await session_svc.create_session(session_id=session_id)
+    except Exception as exc:
+        logger.warning(f"Session initialization warning | session={session_id}: {exc}")
 
     await track_event("session_start", session_id=session_id)
 
@@ -384,9 +383,9 @@ async def conversation_endpoint(ws: WebSocket, session_id: str):
                 logger.debug(f"Diagnosis question intercepted | session={session_id}")
                 continue
 
-            # -- Emergency fast-path --------------------------------------------
-            emergency_words = ["chemical", "acid", "lime", "bleach", "cement"]
-            if any(w in user_input.lower() for w in emergency_words):
+        # -- Emergency fast-path --------------------------------------------
+        from app.services.triage_service import EMERGENCY_KEYWORDS
+        if any(w in user_input.lower() for w in EMERGENCY_KEYWORDS):
                 emergency_msg = (
                     "This sounds like a chemical eye emergency! "
                     "Please flush your eye with clean water IMMEDIATELY and continuously. "

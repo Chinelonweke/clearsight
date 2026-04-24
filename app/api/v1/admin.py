@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 """
 app/api/v1/admin.py
 ─────────────────────────────────────────────────────────
@@ -11,13 +11,18 @@ from datetime import date, datetime, time, timezone
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import HTMLResponse
-from sqlalchemy import func, select, text
+from sqlalchemy import and_, cast, func, select, String, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logger import get_logger
 from app.dependencies import require_admin, db_session
+from app.models.booking import Appointment
+from app.models.doctor import AvailabilitySlot, Doctor
+from app.models.intake import IntakeForm
+from app.models.patient import Patient
 from app.rag.chroma_client import get_collection_stats
 from app.services.analytics_service import get_dashboard_stats
+from app.services.booking_service import BookingService
 
 logger = get_logger(__name__)
 router = APIRouter()
@@ -55,12 +60,6 @@ async def get_analytics(
     - Peak hours
     - Slot utilization
     """
-    from app.models.booking import Appointment
-    from app.models.doctor import AvailabilitySlot, Doctor
-    from app.models.patient import Patient
-    from app.models.intake import IntakeForm
-    from sqlalchemy import and_, cast, String
-
     analytics = {}
 
     # ── 1. Top eye conditions from chief complaints ────────────────────────────
@@ -376,12 +375,6 @@ async def get_today_appointments(
     current_user=Depends(require_admin),
     db: AsyncSession = Depends(db_session),
 ):
-    from datetime import date, timezone, time
-    from sqlalchemy import and_
-    from app.models.booking import Appointment
-    from app.models.doctor import AvailabilitySlot, Doctor
-    from app.models.patient import Patient
-
     today = date.today()
     today_start = datetime.combine(today, time.min, tzinfo=timezone.utc)
     today_end = datetime.combine(today, time.max, tzinfo=timezone.utc)
@@ -403,8 +396,7 @@ async def get_today_appointments(
     if current_user.get("role") == "doctor":
         doctor_id = current_user.get("doctor_id")
         if doctor_id:
-            import uuid as _uuid
-            query = query.where(Appointment.doctor_id == _uuid.UUID(doctor_id))
+            query = query.where(Appointment.doctor_id == uuid.UUID(doctor_id))
 
     result = await db.execute(query)
     rows = result.all()
@@ -439,7 +431,6 @@ async def mark_appointment_seen(
     current_user=Depends(require_admin),
     db: AsyncSession = Depends(db_session),
 ):
-    from app.services.booking_service import BookingService
     svc = BookingService(db)
     appt = await svc.mark_appointment_seen(uuid.UUID(appointment_id))
     await db.commit()
