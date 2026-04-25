@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import asyncio
 import base64
@@ -423,7 +423,8 @@ async def conversation_endpoint(ws: WebSocket, session_id: str):
             # -- Slot filling gate: only allow triage when ALL slots filled -----
             user_messages = [m["content"] for m in history if m["role"] == "user"]
             slots_ready = _all_slots_filled(user_messages)
-
+             
+            reply_text = reply_text.replace("READY_FOR_TRIAGE", "[READY_FOR_TRIAGE]") 
             if "[READY_FOR_TRIAGE]" in reply_text and not slots_ready:
                 # LLM fired too early - strip the tag and let conversation continue
                 logger.debug(
