@@ -81,7 +81,8 @@ def _all_slots_filled(user_messages: list[str]) -> bool:
     has_pain_rating = any(c.isdigit() for c in text)
     has_vision_answer = any(w in text for w in [
         "vision", "blur", "blurr", "double", "clear", "see", "sight",
-        "no change", "no vision", "fine", "normal", "same", "worse", "better"
+        "no change", "no vision", "fine", "normal", "same", "worse", "better" 
+        "yes", "no", "yeah", "nope", "none"
     ])
 
     filled = [has_eye, has_symptom, has_duration, has_pain_rating, has_vision_answer]
