@@ -151,3 +151,8 @@ async def serve_staff_dashboard():
     if staff_file.exists():
         return FileResponse(str(staff_file), media_type="text/html")
     return JSONResponse({"error": "Staff dashboard not found"})
+
+@app.get("/landing")
+async def landing_page():
+    from fastapi.responses import FileResponse
+    return FileResponse("app/dashboard/templates/landing.html")

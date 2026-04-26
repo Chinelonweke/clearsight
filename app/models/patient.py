@@ -1,7 +1,8 @@
+from __future__ import annotations
 """
 app/models/patient.py
 ─────────────────────────────────────────────────────────
-Patient ORM model.
+Patient ORM model — updated with password_hash for auth.
 """
 
 import uuid
@@ -29,6 +30,11 @@ class Patient(Base):
     email: Mapped[str | None] = mapped_column(String(255), index=True)
     date_of_birth: Mapped[date | None] = mapped_column(Date)
 
+    # ── Auth fields ────────────────────────────────────────────────────────────
+    # Nullable — patients created via walk-in triage won't have a password
+    # Google OAuth patients also have no password (authenticated via Google)
+    password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
     # Flexible storage: allergies, prior diagnoses, preferred language, etc.
     metadata_: Mapped[dict] = mapped_column("metadata", JSONB, default=dict)
 
@@ -51,4 +57,4 @@ class Patient(Base):
     )
 
     def __repr__(self) -> str:
-        return f"<Patient id={self.id} name={self.full_name!r} phone={self.phone!r}>"
+        return f"<Patient id={self.id} name={self.full_name!r} email={self.email!r}>"
