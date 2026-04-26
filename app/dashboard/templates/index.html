@@ -127,6 +127,10 @@ header{background:var(--teal-900);padding:14px 24px;display:flex;align-items:cen
 .btn-capture{background:var(--teal-400);color:var(--teal-900);border:none;padding:11px 24px;border-radius:10px;font-family:system-ui,sans-serif;font-size:14px;font-weight:700;cursor:pointer;transition:all .2s}
 .btn-capture:hover{background:var(--teal-300)}
 .btn-cancel-cam{background:rgba(255,255,255,.08);color:#fff;border:1px solid rgba(255,255,255,.15);padding:11px 18px;border-radius:10px;font-family:system-ui,sans-serif;font-size:14px;cursor:pointer}
+/* Vision result card */
+.vision-card{background:var(--teal-50);border:1.5px solid var(--teal-100);border-radius:10px;padding:10px 14px;margin-top:6px}
+.vision-card-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--teal-600);margin-bottom:4px}
+.vision-card-text{font-size:12px;color:var(--text-mid);line-height:1.5}
 @media(max-width:768px){.app-layout{grid-template-columns:1fr;padding:12px;gap:12px}.side-panel{order:1}.chat-panel{min-height:420px;max-height:60vh}}
 </style>
 </head>
@@ -218,7 +222,7 @@ header{background:var(--teal-900);padding:14px 24px;display:flex;align-items:cen
   </div>
 </div>
 <script>
-const state={sessionId:null,ws:null,mediaRecorder:null,audioChunks:[],isRecording:false,messageCount:0,cameraStream:null};
+const state={sessionId:null,ws:null,mediaRecorder:null,audioChunks:[],isRecording:false,messageCount:0,cameraStream:null,retryCount:0};
 const $=id=>document.getElementById(id);
 const messagesEl=$('messages'),textInput=$('text-input'),btnSend=$('btn-send'),btnVoice=$('btn-voice'),btnCamera=$('btn-camera'),thinking=$('thinking'),connStatus=$('conn-status'),alertBanner=$('alert-banner'),sessionIdDisplay=$('session-id-display'),stageDisplay=$('stage-display'),msgCountEl=$('msg-count'),urgencyDisplay=$('urgency-display'),emptyTriage=$('empty-triage'),bookingDisplay=$('booking-display'),emptyBooking=$('empty-booking'),transcriptArea=$('transcript-area'),btnNewSession=$('btn-new-session');
 function now(){return new Date().toLocaleTimeString('en-NG',{hour:'2-digit',minute:'2-digit'})}
@@ -249,39 +253,109 @@ async function startSession(){
 function connectWebSocket(id){
   const proto=location.protocol==='https:'?'wss:':'ws:';
   state.ws=new WebSocket(`${proto}//${location.host}/ws/conversation/${id}`);
-  state.ws.onopen=()=>{setConnStatus('connected','Connected');stageDisplay.textContent='Greeting'};
-  state.ws.onclose=()=>{setConnStatus('disconnected','Disconnected');stageDisplay.textContent='Ended'};
-  state.ws.onerror=()=>setConnStatus('disconnected','Error');
+  state.ws.onopen=()=>{
+    setConnStatus('connected','Connected');
+    state.retryCount=0;
+    stageDisplay.textContent='Greeting';
+  };
+  state.ws.onclose=(event)=>{
+    setConnStatus('disconnected','Disconnected');
+    if(!event.wasClean&&navigator.onLine){
+      const delays=[1000,2000,4000,8000,15000];
+      const delay=delays[Math.min(state.retryCount,delays.length-1)];
+      state.retryCount++;
+      setConnStatus('connecting','Reconnecting in '+(delay/1000)+'s...');
+      setTimeout(()=>connectWebSocket(id),delay);
+    }
+  };
+  state.ws.onerror=()=>setConnStatus('disconnected','Connection error');
   state.ws.onmessage=e=>handleMsg(JSON.parse(e.data));
 }
+/* Handle device going offline/online */
+window.addEventListener('offline',()=>setConnStatus('disconnected','No internet'));
+window.addEventListener('online',()=>{
+  if(state.sessionId&&(!state.ws||state.ws.readyState!==1)){
+    connectWebSocket(state.sessionId);
+  }
+});
 function handleMsg(msg){
-  if(msg.type==='response'){setThinking(false);addMessage('assistant',msg.text);if(msg.audio&&msg.audio.length>10)playAudio(msg.audio);if(msg.is_emergency)showAlert('EMERGENCY: Flush eye with water NOW and go to hospital immediately!')}
+  if(msg.type==='response'){
+    setThinking(false);
+    addMessage('assistant',msg.text);
+    if(msg.audio&&msg.audio.length>10)playAudio(msg.audio);
+    if(msg.is_emergency)showAlert('EMERGENCY: Flush eye with water NOW and go to hospital immediately!');
+  }
   else if(msg.type==='transcript'){updateTranscript(msg.text);addMessage('user',msg.text);setThinking(true)}
+  /* FIX: Handle vision_result — show image analysis in chat */
+  else if(msg.type==='vision_result'){
+    setThinking(false);
+    const data=msg.data||{};
+    const features=data.visible_features||'Eye image received and analysed.';
+    const urgencyFlag=data.urgency_flag||'';
+    let visionMsg='📷 Eye image analysed.\n'+features;
+    if(urgencyFlag&&urgencyFlag!=='none')visionMsg+='\n⚠️ Note: '+urgencyFlag;
+    addMessage('assistant',visionMsg);
+    if(msg.audio&&msg.audio.length>10)playAudio(msg.audio);
+  }
   else if(msg.type==='triage_result'){renderTriage(msg.data);stageDisplay.textContent='Triage'}
   else if(msg.type==='booking_result'){renderBooking(msg.data);stageDisplay.textContent='Booked';btnNewSession.style.display='flex'}
   else if(msg.type==='error'){setThinking(false);showAlert(msg.message||'Error occurred')}
   else if(msg.type==='session_closed'){stageDisplay.textContent='Complete';btnNewSession.style.display='flex'}
+  else if(msg.type==='pong'){/* keepalive — ignore */}
 }
 function sendText(t){if(!t.trim()||!state.ws||state.ws.readyState!==1)return;addMessage('user',t);setThinking(true);state.ws.send(JSON.stringify({type:'text',text:t}))}
 function sendAudio(blob){if(!state.ws||state.ws.readyState!==1)return;setThinking(true);const r=new FileReader();r.onloadend=()=>{state.ws.send(JSON.stringify({type:'audio',audio:r.result.split(',')[1],content_type:blob.type||'audio/webm'}))};r.readAsDataURL(blob)}
 function sendImage(dataUrl){if(!state.ws||state.ws.readyState!==1)return;const b64=dataUrl.split(',')[1];const mime=dataUrl.split(';')[0].split(':')[1];addMessage('user',null,dataUrl);setThinking(true);state.ws.send(JSON.stringify({type:'image',image:b64,mime}))}
-function playAudio(b64){try{const bin=atob(b64);const buf=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)buf[i]=bin.charCodeAt(i);const url=URL.createObjectURL(new Blob([buf],{type:'audio/wav'}));const a=new Audio(url);a.play().catch(()=>{});a.onended=()=>URL.revokeObjectURL(url)}catch(e){}}
+function playAudio(b64){
+  try{
+    const bin=atob(b64);
+    const buf=new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++)buf[i]=bin.charCodeAt(i);
+    const url=URL.createObjectURL(new Blob([buf],{type:'audio/wav'}));
+    const a=new Audio(url);
+    /* FIX: TTS — handle autoplay policy on mobile */
+    a.play().catch(()=>{
+      showAlert('Tap anywhere to enable audio playback.');
+      document.addEventListener('click',()=>a.play().catch(()=>{}),{once:true});
+    });
+    a.onended=()=>URL.revokeObjectURL(url);
+  }catch(e){console.warn('Audio playback failed:',e)}
+}
 btnVoice.addEventListener('mousedown',startRec);btnVoice.addEventListener('touchstart',e=>{e.preventDefault();startRec()});
 btnVoice.addEventListener('mouseup',stopRec);btnVoice.addEventListener('touchend',e=>{e.preventDefault();stopRec()});
 btnVoice.addEventListener('mouseleave',()=>{if(state.isRecording)stopRec()});
 async function startRec(){if(state.isRecording)return;try{const stream=await navigator.mediaDevices.getUserMedia({audio:true});state.audioChunks=[];state.mediaRecorder=new MediaRecorder(stream);state.mediaRecorder.ondataavailable=e=>state.audioChunks.push(e.data);state.mediaRecorder.onstop=()=>{const blob=new Blob(state.audioChunks,{type:'audio/webm'});stream.getTracks().forEach(t=>t.stop());if(blob.size>1000)sendAudio(blob)};state.mediaRecorder.start();state.isRecording=true;btnVoice.classList.add('recording')}catch(e){showAlert('Microphone access denied.')}}
 function stopRec(){if(!state.isRecording||!state.mediaRecorder)return;state.mediaRecorder.stop();state.isRecording=false;btnVoice.classList.remove('recording')}
 btnCamera.addEventListener('click',openCam);$('btn-close-camera').addEventListener('click',closeCam);$('btn-cancel-cam').addEventListener('click',closeCam);$('btn-capture').addEventListener('click',capImg);
-async function openCam(){try{state.cameraStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'}});$('camera-preview').srcObject=state.cameraStream;$('camera-overlay').classList.add('active')}catch(e){showAlert('Camera access denied.')}}
+async function openCam(){
+  try{
+    /* FIX: Use environment camera on mobile for better eye photos */
+    const constraints={video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}}};
+    try{state.cameraStream=await navigator.mediaDevices.getUserMedia(constraints);}
+    catch(e){state.cameraStream=await navigator.mediaDevices.getUserMedia({video:true});}
+    $('camera-preview').srcObject=state.cameraStream;
+    $('camera-overlay').classList.add('active');
+  }catch(e){showAlert('Camera access denied. Please allow camera permission.');}
+}
 function closeCam(){if(state.cameraStream){state.cameraStream.getTracks().forEach(t=>t.stop());state.cameraStream=null}$('camera-overlay').classList.remove('active')}
-function capImg(){const v=$('camera-preview'),c=$('camera-canvas');c.width=v.videoWidth;c.height=v.videoHeight;c.getContext('2d').drawImage(v,0,0,c.width,c.height);const d=c.toDataURL('image/jpeg',.85);closeCam();sendImage(d)}
+function capImg(){
+  const v=$('camera-preview'),c=$('camera-canvas');
+  if(!v.videoWidth){showAlert('Camera not ready. Please wait a moment and try again.');return;}
+  c.width=v.videoWidth;c.height=v.videoHeight;
+  c.getContext('2d').drawImage(v,0,0,c.width,c.height);
+  const d=c.toDataURL('image/jpeg',.85);
+  closeCam();
+  sendImage(d);
+  showAlert('📷 Eye image captured and sent for analysis...');
+}
 btnSend.addEventListener('click',()=>{const t=textInput.value.trim();if(t){sendText(t);textInput.value='';textInput.style.height='auto'}});
 textInput.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();btnSend.click()}});
 textInput.addEventListener('input',()=>{textInput.style.height='auto';textInput.style.height=Math.min(textInput.scrollHeight,120)+'px'});
 function renderTriage(data){emptyTriage.style.display='none';urgencyDisplay.classList.add('visible');const lvl=(data.urgency_level||'routine').toLowerCase();const sc=data.urgency_score||1;const icons={emergency:'&#128680;',urgent:'&#9888;&#65039;',routine:'&#9989;'};const labels={emergency:'Immediate attention required',urgent:'Seen today',routine:'Schedule appointment'};urgencyDisplay.innerHTML=`<div class="urgency-badge ${lvl}"><div class="urgency-icon">${icons[lvl]||'&#9989;'}</div><div class="urgency-info"><h4>${lvl} &mdash; ${sc}/10</h4><p>${labels[lvl]||''}</p></div></div><div class="score-bar"><div class="score-fill ${lvl}" style="width:${sc*10}%"></div></div>${data.chief_complaint?`<div class="triage-label">Chief Complaint</div><div class="triage-detail">${esc(data.chief_complaint)}</div>`:''}`}
 function renderBooking(data){emptyBooking.style.display='none';bookingDisplay.classList.add('visible');bookingDisplay.innerHTML=`<div class="booking-slot"><div class="slot-time">&#128197; ${esc(data.slot_time||'Confirmed')}</div><div class="slot-label">${esc((data.urgency_level||'').toUpperCase())}</div></div>${data.patient_instruction?`<div class="triage-label" style="margin-top:10px">Instructions</div><div class="triage-detail">${esc(data.patient_instruction)}</div>`:''}<div class="booking-id">ID: ${esc(data.appointment_id||'—')}</div>`}
 function updateTranscript(t){if(transcriptArea.querySelector('span'))transcriptArea.innerHTML='';const d=document.createElement('div');d.style.cssText='padding:2px 0;border-bottom:1px solid var(--warm-100)';d.innerHTML=`<span style="color:var(--teal-600);font-weight:600">${now()}</span> ${esc(t)}`;transcriptArea.appendChild(d);transcriptArea.scrollTop=transcriptArea.scrollHeight}
-btnNewSession.addEventListener('click',()=>{if(state.ws)state.ws.close();messagesEl.innerHTML='';urgencyDisplay.classList.remove('visible');urgencyDisplay.innerHTML='';emptyTriage.style.display='';bookingDisplay.classList.remove('visible');bookingDisplay.innerHTML='';emptyBooking.style.display='';transcriptArea.innerHTML='<span style="color:var(--text-muted)">Voice transcripts appear here...</span>';btnNewSession.style.display='none';state.messageCount=0;msgCountEl.textContent='0';startSession()});
+btnNewSession.addEventListener('click',()=>{if(state.ws)state.ws.close();messagesEl.innerHTML='';urgencyDisplay.classList.remove('visible');urgencyDisplay.innerHTML='';emptyTriage.style.display='';bookingDisplay.classList.remove('visible');bookingDisplay.innerHTML='';emptyBooking.style.display='';transcriptArea.innerHTML='<span style="color:var(--text-muted)">Voice transcripts appear here...</span>';btnNewSession.style.display='none';state.messageCount=0;msgCountEl.textContent='0';state.retryCount=0;startSession()});
+/* Keepalive ping every 30s */
 setInterval(()=>{if(state.ws&&state.ws.readyState===1)state.ws.send(JSON.stringify({type:'ping'}))},30000);
 startSession();
 </script>
