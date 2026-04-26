@@ -161,7 +161,14 @@ class VisionService:
 
         except Exception as exc:
             logger.error(f"LLaVA vision analysis failed | session={session_id}: {exc}")
-            raise VisionError(message=str(exc)) from exc
+             # Graceful fallback — don't crash the session
+            return {
+        "raw_observation": "Vision analysis temporarily unavailable.",
+        "visible_features": "Image received but could not be analysed at this time. Please describe your symptoms verbally.",
+        "notable_findings": "None — manual analysis unavailable.",
+        "urgency_flag": "none",
+        "disclaimer": "These are visual observations only. Clinical examination is required.",
+    }
 
         # â”€â”€ Parse structured fields from the response â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         return self._parse_observation(raw_text)
