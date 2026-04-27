@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 """
 app/api/v1/auth.py
 ─────────────────────────────────────────────────────────
@@ -474,7 +474,7 @@ async def google_oauth_callback(
         )
 
         # Redirect to app with token in URL fragment (handled by frontend JS)
-        return RedirectResponse(url=f"/?token={access}")
+        return RedirectResponse(url=f"/app?token={access}")
 
     except Exception as exc:
         logger.error(f"Google OAuth callback error: {exc}")
