@@ -151,11 +151,11 @@ jobs:
             ~/clearsight/fetch_secrets.sh || echo "⚠️ Secret refresh failed — using existing .env"
 
             # Stop current app container only (keep chroma running)
-            docker-compose -f docker/docker-compose.yml stop api
-            docker-compose -f docker/docker-compose.yml rm -f api
+            docker compose -f docker/docker-compose.yml stop api
+            docker compose -f docker/docker-compose.yml rm -f api
 
             # Start with new image
-            APP_IMAGE=$NEW_IMAGE docker-compose -f docker/docker-compose.yml up -d api
+            APP_IMAGE=$NEW_IMAGE docker compose -f docker/docker-compose.yml up -d api
 
             # Health check with retry loop — up to 120 seconds
             echo "Waiting for app to be healthy..."
@@ -176,14 +176,14 @@ jobs:
               echo "   Commit: $IMAGE_TAG"
             else
               echo "❌ Health check failed after 120s — rolling back to previous image"
-              docker-compose -f docker/docker-compose.yml stop api
-              docker-compose -f docker/docker-compose.yml rm -f api
+              docker compose -f docker/docker-compose.yml stop api
+              docker compose -f docker/docker-compose.yml rm -f api
               if [ -n "$CURRENT_IMAGE" ]; then
-                APP_IMAGE=$CURRENT_IMAGE docker-compose -f docker/docker-compose.yml up -d api
+                APP_IMAGE=$CURRENT_IMAGE docker compose -f docker/docker-compose.yml up -d api
                 echo "🔄 Rolled back to: $CURRENT_IMAGE"
               else
                 APP_IMAGE="$ECR_REGISTRY/$ECR_REPOSITORY:latest" \
-                  docker-compose -f docker/docker-compose.yml up -d api
+                  docker compose -f docker/docker-compose.yml up -d api
                 echo "🔄 Rolled back to latest"
               fi
               exit 1
