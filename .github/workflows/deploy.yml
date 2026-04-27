@@ -159,10 +159,11 @@ jobs:
 
             # Health check with retry loop — up to 120 seconds
             echo "Waiting for app to be healthy..."
+            sleep 20
             HEALTHY=false
             for i in {1..12}; do
               sleep 10
-              STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/health || echo "000")
+              STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8000/health || echo "000")
               echo "Attempt $i/12: HTTP $STATUS"
               if [ "$STATUS" = "200" ]; then
                 HEALTHY=true
