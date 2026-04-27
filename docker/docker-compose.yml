@@ -1,4 +1,3 @@
-version: "3.9"
 
 # ── ClearSight — Docker Compose ───────────────────────────────────────────────
 # Local dev:    docker-compose up --build
