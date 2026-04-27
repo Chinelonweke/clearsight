@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 """
 app/api/v1/auth.py
 ─────────────────────────────────────────────────────────
@@ -23,7 +23,7 @@ from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse, HTMLResponse
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -37,7 +37,6 @@ from app.core.security import (
 )
 from app.dependencies import db_session
 from app.services.analytics_service import track_event
-from app.services.email_service import send_booking_confirmation
 
 logger = get_logger(__name__)
 router = APIRouter()
@@ -91,7 +90,6 @@ class TokenResponse(BaseModel):
 # ── Password helpers ───────────────────────────────────────────────────────────
 
 def _hash_password(plain: str) -> str:
-    """Hash a plain password with bcrypt."""
     return _bcrypt.hashpw(
         plain.encode("utf-8"),
         _bcrypt.gensalt(rounds=12)
@@ -99,7 +97,6 @@ def _hash_password(plain: str) -> str:
 
 
 def _check_password(plain: str, hashed: str) -> bool:
-    """Verify a plain password against a bcrypt hash."""
     try:
         return _bcrypt.checkpw(
             plain.encode("utf-8"),
@@ -114,7 +111,6 @@ def _check_password(plain: str, hashed: str) -> bool:
 
 @router.post("/login", response_model=TokenResponse)
 async def login(body: LoginRequest):
-    """Admin login — compares against ADMIN_USERNAME / ADMIN_PASSWORD in .env."""
     if (
         body.username != settings.admin_username
         or body.password != settings.admin_password
@@ -125,7 +121,6 @@ async def login(body: LoginRequest):
 
     access = create_access_token(subject=body.username, extra={"role": "admin"})
     refresh = create_refresh_token(subject=body.username)
-
     logger.info(f"Admin login | username={body.username!r}")
     await track_event("auth_login", success=True, metadata={"username": body.username})
     return TokenResponse(access_token=access, refresh_token=refresh)
@@ -138,7 +133,6 @@ async def doctor_login(
     credentials: LoginRequest,
     db: AsyncSession = Depends(db_session),
 ):
-    """Doctor login — looks up doctor by username and verifies bcrypt password."""
     from app.models.doctor import Doctor
 
     result = await db.execute(
@@ -178,13 +172,8 @@ async def register_patient(
     body: PatientRegisterRequest,
     db: AsyncSession = Depends(db_session),
 ):
-    """
-    Register a new patient account.
-    Stores hashed password in patients.password_hash.
-    """
     from app.models.patient import Patient
 
-    # Check email not already registered
     result = await db.execute(
         select(Patient).where(Patient.email == body.email.lower().strip())
     )
@@ -195,7 +184,6 @@ async def register_patient(
     if len(body.password) < 8:
         raise HTTPException(status_code=400, detail="Password must be at least 8 characters.")
 
-    # Create patient
     patient = Patient(
         full_name=body.full_name.strip(),
         email=body.email.lower().strip(),
@@ -205,7 +193,6 @@ async def register_patient(
     await db.commit()
     await db.refresh(patient)
 
-    # Generate tokens
     access = create_access_token(
         subject=str(patient.id),
         extra={"role": "patient", "email": patient.email, "name": patient.full_name}
@@ -232,7 +219,6 @@ async def patient_login(
     body: PatientLoginRequest,
     db: AsyncSession = Depends(db_session),
 ):
-    """Patient login — email + password → JWT."""
     from app.models.patient import Patient
 
     result = await db.execute(
@@ -273,11 +259,6 @@ async def forgot_password(
     body: ForgotPasswordRequest,
     db: AsyncSession = Depends(db_session),
 ):
-    """
-    Send password reset email.
-    Always returns 200 even if email not found (security best practice —
-    don't reveal whether email exists in system).
-    """
     from app.models.patient import Patient
     from app.models.password_reset import PasswordResetToken
 
@@ -287,11 +268,9 @@ async def forgot_password(
     patient = result.scalar_one_or_none()
 
     if patient:
-        # Generate secure reset token
         token = secrets.token_urlsafe(32)
         expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
 
-        # Invalidate any existing tokens for this patient
         existing = await db.execute(
             select(PasswordResetToken).where(
                 PasswordResetToken.patient_id == patient.id,
@@ -301,7 +280,6 @@ async def forgot_password(
         for old_token in existing.scalars().all():
             old_token.used = True
 
-        # Store new token
         reset_token = PasswordResetToken(
             patient_id=patient.id,
             token=token,
@@ -310,17 +288,13 @@ async def forgot_password(
         db.add(reset_token)
         await db.commit()
 
-        # Send reset email
         reset_url = f"https://clearsightclinic.online/reset-password?token={token}"
         try:
-            import httpx
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                # Use your existing Gmail setup
-                from app.services.email_service import _send_email
-                await _send_email(
-                    to_email=patient.email,
-                    subject="Reset your ClearSight password",
-                    body=f"""Hello {patient.full_name},
+            from app.services.email_service import _send_email
+            await _send_email(
+                to_email=patient.email,
+                subject="Reset your ClearSight password",
+                body=f"""Hello {patient.full_name},
 
 You requested a password reset for your ClearSight account.
 
@@ -331,13 +305,12 @@ If you didn't request this, you can safely ignore this email.
 
 — ClearSight Eye Clinic
 """
-                )
+            )
         except Exception as exc:
             logger.warning(f"Failed to send reset email: {exc}")
 
         logger.info(f"Password reset requested | email={body.email}")
 
-    # Always return 200 — don't reveal if email exists
     return {"message": "If that email is registered, a reset link has been sent."}
 
 
@@ -348,7 +321,6 @@ async def reset_password(
     body: ResetPasswordRequest,
     db: AsyncSession = Depends(db_session),
 ):
-    """Verify reset token and update password."""
     from app.models.patient import Patient
     from app.models.password_reset import PasswordResetToken
 
@@ -369,7 +341,6 @@ async def reset_password(
     if len(body.new_password) < 8:
         raise HTTPException(status_code=400, detail="Password must be at least 8 characters.")
 
-    # Update password
     result_p = await db.execute(
         select(Patient).where(Patient.id == reset_token.patient_id)
     )
@@ -391,10 +362,7 @@ async def reset_password(
 async def google_oauth_redirect():
     """Redirect to Google OAuth consent screen."""
     if not GOOGLE_CLIENT_ID:
-        raise HTTPException(
-            status_code=501,
-            detail="Google OAuth not configured. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env"
-        )
+        raise HTTPException(status_code=501, detail="Google OAuth not configured.")
     import urllib.parse
     params = {
         "client_id": GOOGLE_CLIENT_ID,
@@ -402,9 +370,10 @@ async def google_oauth_redirect():
         "response_type": "code",
         "scope": "openid email profile",
         "access_type": "offline",
+        "prompt": "select_account",
     }
     url = "https://accounts.google.com/o/oauth2/v2/auth?" + urllib.parse.urlencode(params)
-    return RedirectResponse(url=url)
+    return RedirectResponse(url=url, status_code=302)
 
 
 @router.get("/google/callback")
@@ -415,14 +384,13 @@ async def google_oauth_callback(
 ):
     """Handle Google OAuth callback — create or login patient."""
     if error or not code:
-        return RedirectResponse(url="/landing?error=google_cancelled")
+        return RedirectResponse(url="/landing?error=google_cancelled", status_code=302)
 
     try:
         import httpx
         from app.models.patient import Patient
 
-        # Exchange code for tokens
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with httpx.AsyncClient(timeout=15.0) as client:
             token_resp = await client.post(
                 "https://oauth2.googleapis.com/token",
                 data={
@@ -434,21 +402,31 @@ async def google_oauth_callback(
                 },
             )
             tokens = token_resp.json()
+            logger.info(
+                f"Google token exchange | status={token_resp.status_code} "
+                f"| keys={list(tokens.keys())}"
+            )
 
-            # Get user info
+            if token_resp.status_code != 200 or "access_token" not in tokens:
+                logger.error(
+                    f"Google token exchange failed | status={token_resp.status_code} "
+                    f"| error={tokens.get('error')} | desc={tokens.get('error_description')}"
+                )
+                return RedirectResponse(url="/landing?error=google_failed", status_code=302)
+
             userinfo_resp = await client.get(
                 "https://www.googleapis.com/oauth2/v3/userinfo",
                 headers={"Authorization": f"Bearer {tokens['access_token']}"},
             )
             userinfo = userinfo_resp.json()
+            logger.info(f"Google userinfo | email={userinfo.get('email')}")
 
         google_email = userinfo.get("email", "").lower()
         google_name = userinfo.get("name", "")
 
         if not google_email:
-            return RedirectResponse(url="/landing?error=google_no_email")
+            return RedirectResponse(url="/landing?error=google_no_email", status_code=302)
 
-        # Find or create patient
         result = await db.execute(
             select(Patient).where(Patient.email == google_email)
         )
@@ -458,7 +436,7 @@ async def google_oauth_callback(
             patient = Patient(
                 full_name=google_name,
                 email=google_email,
-                password_hash=None,  # Google users have no password
+                password_hash=None,
             )
             db.add(patient)
             await db.commit()
@@ -467,18 +445,16 @@ async def google_oauth_callback(
         else:
             logger.info(f"Existing patient via Google | email={google_email}")
 
-        # Create JWT
         access = create_access_token(
             subject=str(patient.id),
             extra={"role": "patient", "email": patient.email, "name": patient.full_name}
         )
 
-        # Redirect to app with token in URL fragment (handled by frontend JS)
-        return RedirectResponse(url=f"/?token={access}")
+        return RedirectResponse(url=f"/app?token={access}", status_code=302)
 
     except Exception as exc:
         logger.error(f"Google OAuth callback error: {exc}")
-        return RedirectResponse(url="/landing?error=google_failed")
+        return RedirectResponse(url="/landing?error=google_failed", status_code=302)
 
 
 # ── Get current patient ────────────────────────────────────────────────────────
@@ -488,7 +464,6 @@ async def get_current_patient(
     request: Request,
     db: AsyncSession = Depends(db_session),
 ):
-    """Return current patient profile from JWT token."""
     from app.models.patient import Patient
 
     auth_header = request.headers.get("Authorization", "")
@@ -521,7 +496,6 @@ async def get_current_patient(
 
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh_token(body: RefreshTokenRequest):
-    """Exchange a valid refresh token for a new access token."""
     payload = verify_token(body.refresh_token, expected_type="refresh")
     subject = payload["sub"]
     access = create_access_token(subject=subject, extra={"role": "admin"})
