@@ -223,6 +223,13 @@ header{background:var(--teal-900);padding:14px 24px;display:flex;align-items:cen
 <script>
 // ── Route protection — redirect to landing if not logged in ──
 (function(){
+  // Check if token is in URL (coming from Google OAuth)
+  const urlParams=new URLSearchParams(window.location.search);
+  const urlToken=urlParams.get('token');
+  if(urlToken){
+    localStorage.setItem('cs_token',urlToken);
+    window.history.replaceState({},'','/app');
+  }
   const token=localStorage.getItem('cs_token');
   if(!token){window.location.href='/';return;}
   try{
