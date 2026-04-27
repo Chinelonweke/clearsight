@@ -3,7 +3,7 @@ from __future__ import annotations
 app/services/email_service.py
 ─────────────────────────────────────────────────────────
 Patient email notification service using Gmail SMTP.
-Sends booking confirmations immediately after triage completes.
+Sends booking confirmations and password reset emails.
 Non-fatal — email failure never crashes the booking flow.
 """
 
@@ -15,6 +15,58 @@ from email.mime.text import MIMEText
 from app.core.logger import get_logger
 
 logger = get_logger(__name__)
+
+
+async def _send_email(
+    to_email: str,
+    subject: str,
+    body: str,
+    html: str | None = None,
+) -> bool:
+    """
+    Generic email sender via Gmail SMTP.
+    Used for password reset emails and other transactional emails.
+    Returns True if sent successfully, False otherwise.
+    Never raises — email failure is non-fatal.
+    """
+    if not to_email or "@" not in to_email:
+        logger.debug("No valid email address — skipping email.")
+        return False
+
+    try:
+        from app.config import settings
+
+        gmail_user = settings.gmail_user
+        gmail_password = settings.gmail_app_password
+
+        if not gmail_user or not gmail_password:
+            logger.warning("Gmail credentials not configured — email notifications disabled.")
+            return False
+
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"] = f"{settings.clinic_name} <{gmail_user}>"
+        msg["To"] = to_email
+        msg["Reply-To"] = gmail_user
+
+        # Attach plain text version
+        msg.attach(MIMEText(body, "plain"))
+
+        # Attach HTML version if provided
+        if html:
+            msg.attach(MIMEText(html, "html"))
+
+        context = ssl.create_default_context()
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
+            server.login(gmail_user, gmail_password)
+            server.sendmail(gmail_user, to_email, msg.as_string())
+
+        logger.success(f"Email sent via Gmail | to={to_email} | subject={subject}")
+        return True
+
+    except Exception as exc:
+        logger.warning(f"Email send failed (non-fatal) | to={to_email}: {exc}")
+        return False
 
 
 def _build_confirmation_html(
@@ -29,7 +81,7 @@ def _build_confirmation_html(
     clinic_address: str,
     clinic_phone: str,
 ) -> str:
-    """Build the HTML email body."""
+    """Build the HTML email body for booking confirmations."""
 
     urgency_color = {
         "emergency": "#dc2626",
@@ -244,7 +296,6 @@ async def send_booking_confirmation(
             clinic_phone=settings.clinic_phone,
         )
 
-        # Build email
         msg = MIMEMultipart("alternative")
         msg["Subject"] = f"Appointment Confirmed — {slot_time} | {settings.clinic_name}"
         msg["From"] = f"{settings.clinic_name} <{gmail_user}>"
@@ -253,7 +304,6 @@ async def send_booking_confirmation(
 
         msg.attach(MIMEText(html, "html"))
 
-        # Send via Gmail SMTP
         context = ssl.create_default_context()
         with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
             server.login(gmail_user, gmail_password)
