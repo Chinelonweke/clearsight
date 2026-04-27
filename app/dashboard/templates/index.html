@@ -127,7 +127,6 @@ header{background:var(--teal-900);padding:14px 24px;display:flex;align-items:cen
 .btn-capture{background:var(--teal-400);color:var(--teal-900);border:none;padding:11px 24px;border-radius:10px;font-family:system-ui,sans-serif;font-size:14px;font-weight:700;cursor:pointer;transition:all .2s}
 .btn-capture:hover{background:var(--teal-300)}
 .btn-cancel-cam{background:rgba(255,255,255,.08);color:#fff;border:1px solid rgba(255,255,255,.15);padding:11px 18px;border-radius:10px;font-family:system-ui,sans-serif;font-size:14px;cursor:pointer}
-/* Vision result card */
 .vision-card{background:var(--teal-50);border:1.5px solid var(--teal-100);border-radius:10px;padding:10px 14px;margin-top:6px}
 .vision-card-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--teal-600);margin-bottom:4px}
 .vision-card-text{font-size:12px;color:var(--text-mid);line-height:1.5}
@@ -222,6 +221,22 @@ header{background:var(--teal-900);padding:14px 24px;display:flex;align-items:cen
   </div>
 </div>
 <script>
+// ── Route protection — redirect to landing if not logged in ──
+(function(){
+  const token=localStorage.getItem('cs_token');
+  if(!token){window.location.href='/';return;}
+  try{
+    const payload=JSON.parse(atob(token.split('.')[1]));
+    if(payload.exp && payload.exp*1000 < Date.now()){
+      localStorage.removeItem('cs_token');
+      window.location.href='/';
+    }
+  }catch(e){
+    localStorage.removeItem('cs_token');
+    window.location.href='/';
+  }
+})();
+
 const state={sessionId:null,ws:null,mediaRecorder:null,audioChunks:[],isRecording:false,messageCount:0,cameraStream:null,retryCount:0};
 const $=id=>document.getElementById(id);
 const messagesEl=$('messages'),textInput=$('text-input'),btnSend=$('btn-send'),btnVoice=$('btn-voice'),btnCamera=$('btn-camera'),thinking=$('thinking'),connStatus=$('conn-status'),alertBanner=$('alert-banner'),sessionIdDisplay=$('session-id-display'),stageDisplay=$('stage-display'),msgCountEl=$('msg-count'),urgencyDisplay=$('urgency-display'),emptyTriage=$('empty-triage'),bookingDisplay=$('booking-display'),emptyBooking=$('empty-booking'),transcriptArea=$('transcript-area'),btnNewSession=$('btn-new-session');
@@ -271,7 +286,6 @@ function connectWebSocket(id){
   state.ws.onerror=()=>setConnStatus('disconnected','Connection error');
   state.ws.onmessage=e=>handleMsg(JSON.parse(e.data));
 }
-/* Handle device going offline/online */
 window.addEventListener('offline',()=>setConnStatus('disconnected','No internet'));
 window.addEventListener('online',()=>{
   if(state.sessionId&&(!state.ws||state.ws.readyState!==1)){
@@ -286,7 +300,6 @@ function handleMsg(msg){
     if(msg.is_emergency)showAlert('EMERGENCY: Flush eye with water NOW and go to hospital immediately!');
   }
   else if(msg.type==='transcript'){updateTranscript(msg.text);addMessage('user',msg.text);setThinking(true)}
-  /* FIX: Handle vision_result — show image analysis in chat */
   else if(msg.type==='vision_result'){
     setThinking(false);
     const data=msg.data||{};
@@ -301,7 +314,7 @@ function handleMsg(msg){
   else if(msg.type==='booking_result'){renderBooking(msg.data);stageDisplay.textContent='Booked';btnNewSession.style.display='flex'}
   else if(msg.type==='error'){setThinking(false);showAlert(msg.message||'Error occurred')}
   else if(msg.type==='session_closed'){stageDisplay.textContent='Complete';btnNewSession.style.display='flex'}
-  else if(msg.type==='pong'){/* keepalive — ignore */}
+  else if(msg.type==='pong'){/* keepalive */}
 }
 function sendText(t){if(!t.trim()||!state.ws||state.ws.readyState!==1)return;addMessage('user',t);setThinking(true);state.ws.send(JSON.stringify({type:'text',text:t}))}
 function sendAudio(blob){if(!state.ws||state.ws.readyState!==1)return;setThinking(true);const r=new FileReader();r.onloadend=()=>{state.ws.send(JSON.stringify({type:'audio',audio:r.result.split(',')[1],content_type:blob.type||'audio/webm'}))};r.readAsDataURL(blob)}
@@ -313,7 +326,6 @@ function playAudio(b64){
     for(let i=0;i<bin.length;i++)buf[i]=bin.charCodeAt(i);
     const url=URL.createObjectURL(new Blob([buf],{type:'audio/wav'}));
     const a=new Audio(url);
-    /* FIX: TTS — handle autoplay policy on mobile */
     a.play().catch(()=>{
       showAlert('Tap anywhere to enable audio playback.');
       document.addEventListener('click',()=>a.play().catch(()=>{}),{once:true});
@@ -329,7 +341,6 @@ function stopRec(){if(!state.isRecording||!state.mediaRecorder)return;state.medi
 btnCamera.addEventListener('click',openCam);$('btn-close-camera').addEventListener('click',closeCam);$('btn-cancel-cam').addEventListener('click',closeCam);$('btn-capture').addEventListener('click',capImg);
 async function openCam(){
   try{
-    /* FIX: Use environment camera on mobile for better eye photos */
     const constraints={video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}}};
     try{state.cameraStream=await navigator.mediaDevices.getUserMedia(constraints);}
     catch(e){state.cameraStream=await navigator.mediaDevices.getUserMedia({video:true});}
@@ -355,7 +366,6 @@ function renderTriage(data){emptyTriage.style.display='none';urgencyDisplay.clas
 function renderBooking(data){emptyBooking.style.display='none';bookingDisplay.classList.add('visible');bookingDisplay.innerHTML=`<div class="booking-slot"><div class="slot-time">&#128197; ${esc(data.slot_time||'Confirmed')}</div><div class="slot-label">${esc((data.urgency_level||'').toUpperCase())}</div></div>${data.patient_instruction?`<div class="triage-label" style="margin-top:10px">Instructions</div><div class="triage-detail">${esc(data.patient_instruction)}</div>`:''}<div class="booking-id">ID: ${esc(data.appointment_id||'—')}</div>`}
 function updateTranscript(t){if(transcriptArea.querySelector('span'))transcriptArea.innerHTML='';const d=document.createElement('div');d.style.cssText='padding:2px 0;border-bottom:1px solid var(--warm-100)';d.innerHTML=`<span style="color:var(--teal-600);font-weight:600">${now()}</span> ${esc(t)}`;transcriptArea.appendChild(d);transcriptArea.scrollTop=transcriptArea.scrollHeight}
 btnNewSession.addEventListener('click',()=>{if(state.ws)state.ws.close();messagesEl.innerHTML='';urgencyDisplay.classList.remove('visible');urgencyDisplay.innerHTML='';emptyTriage.style.display='';bookingDisplay.classList.remove('visible');bookingDisplay.innerHTML='';emptyBooking.style.display='';transcriptArea.innerHTML='<span style="color:var(--text-muted)">Voice transcripts appear here...</span>';btnNewSession.style.display='none';state.messageCount=0;msgCountEl.textContent='0';state.retryCount=0;startSession()});
-/* Keepalive ping every 30s */
 setInterval(()=>{if(state.ws&&state.ws.readyState===1)state.ws.send(JSON.stringify({type:'ping'}))},30000);
 startSession();
 </script>
