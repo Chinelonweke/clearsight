@@ -545,6 +545,7 @@ python -m app.rag.ingest --reset
 **Chinelo Nweke** — AI Engineer  
 Built for the ClearSight Eye Clinic, Kubwa, Abuja, Nigeria.
 App link: https://clearsightclinic.online/
+Staff link: https://clearsightclinic.online/staff
 
 ---
 
