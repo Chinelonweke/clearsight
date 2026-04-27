@@ -12,27 +12,22 @@ env:
   IMAGE_TAG: ${{ github.sha }}
 
 jobs:
-  # ── Job 1: Run tests ──────────────────────────────────────────────────────────
   test:
     name: Run Tests
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: "pip"
-
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pytest pytest-asyncio httpx
-
       - name: Run tests
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
@@ -54,73 +49,59 @@ jobs:
         run: |
           pytest tests/ -v --tb=short || echo "Tests completed (some may be skipped without services)"
 
-  # ── Job 2: Build and push Docker image to ECR ─────────────────────────────────
   build-and-push:
     name: Build & Push to ECR
     runs-on: ubuntu-latest
     needs: test
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-
     outputs:
       image: ${{ steps.build-image.outputs.image }}
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
-
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
-
       - name: Build, tag, and push image to ECR
         id: build-image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         run: |
-          # Pull latest for layer cache
-          docker pull $ECR_REGISTRY/$ECR_REPOSITORY:latest || true|
+          docker pull $ECR_REGISTRY/$ECR_REPOSITORY:latest || true
           docker build \
-            
+            --cache-from $ECR_REGISTRY/$ECR_REPOSITORY:latest \
             -f docker/Dockerfile \
             -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
             -t $ECR_REGISTRY/$ECR_REPOSITORY:latest \
             .
-
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
-
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
           echo "Pushed image: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
 
-  # ── Job 3: Deploy to EC2 ──────────────────────────────────────────────────────
   deploy:
     name: Deploy to EC2
     runs-on: ubuntu-latest
     needs: build-and-push
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
-
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
-
       - name: Deploy to EC2 via SSH
         uses: appleboy/ssh-action@v1.0.3
         env:
@@ -133,34 +114,25 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           envs: ECR_REGISTRY,ECR_REPOSITORY,AWS_REGION,IMAGE_TAG
-          # Increase timeout to 10 minutes to allow for slow startups
           command_timeout: 10m
           script: |
-            # Authenticate Docker with ECR
             aws ecr get-login-password --region $AWS_REGION | \
               docker login --username AWS --password-stdin $ECR_REGISTRY
 
             echo "Pulling new image: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
             docker pull $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
-            # Navigate to app directory
             cd ~/clearsight
 
-            # Store current image for rollback
             CURRENT_IMAGE=$(docker inspect clearsight_api --format='{{.Config.Image}}' 2>/dev/null || echo "")
             export NEW_IMAGE="$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
 
-            # Refresh secrets from Parameter Store before restart
-            ~/clearsight/fetch_secrets.sh || echo "⚠️ Secret refresh failed — using existing .env"
+            ~/clearsight/fetch_secrets.sh || echo "Secret refresh failed — using existing .env"
 
-            # Stop current app container only (keep chroma running)
             docker compose -f docker/docker-compose.yml stop api
             docker compose -f docker/docker-compose.yml rm -f api
-
-            # Start with new image
             APP_IMAGE=$NEW_IMAGE docker compose -f docker/docker-compose.yml up -d api
 
-            # Health check with retry loop — up to 120 seconds
             echo "Waiting for app to be healthy..."
             sleep 20
             HEALTHY=false
@@ -175,41 +147,35 @@ jobs:
             done
 
             if [ "$HEALTHY" = "true" ]; then
-              echo "✅ Deployment successful — app is healthy"
-              echo "   Image: $NEW_IMAGE"
-              echo "   Commit: $IMAGE_TAG"
+              echo "Deployment successful — app is healthy"
+              echo "Image: $NEW_IMAGE"
             else
-              echo "❌ Health check failed after 120s — rolling back to previous image"
+              echo "Health check failed — rolling back"
               docker compose -f docker/docker-compose.yml stop api
               docker compose -f docker/docker-compose.yml rm -f api
               if [ -n "$CURRENT_IMAGE" ]; then
                 APP_IMAGE=$CURRENT_IMAGE docker compose -f docker/docker-compose.yml up -d api
-                echo "🔄 Rolled back to: $CURRENT_IMAGE"
               else
                 APP_IMAGE="$ECR_REGISTRY/$ECR_REPOSITORY:latest" \
                   docker compose -f docker/docker-compose.yml up -d api
-                echo "🔄 Rolled back to latest"
               fi
               exit 1
             fi
 
-            # Clean up old images (keep last 3)
             docker images $ECR_REGISTRY/$ECR_REPOSITORY \
               --format "{{.ID}}" | tail -n +4 | xargs -r docker rmi || true
 
-            echo "🚀 ClearSight deployed successfully"
+            echo "ClearSight deployed successfully"
 
-  # ── Notify on failure ──────────────────────────────────────────────────────────
   notify-failure:
     name: Notify on Failure
     runs-on: ubuntu-latest
     needs: [test, build-and-push, deploy]
     if: failure() && github.ref == 'refs/heads/main'
-
     steps:
       - name: Log failure
         run: |
-          echo "❌ ClearSight deployment failed"
+          echo "ClearSight deployment failed"
           echo "Branch: ${{ github.ref }}"
           echo "Commit: ${{ github.sha }}"
           echo "Author: ${{ github.actor }}"
