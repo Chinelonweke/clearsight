@@ -258,7 +258,10 @@ function addMessage(role,content,imgUrl=null){
 async function startSession(){
   setConnStatus('connecting','Connecting...');
   try{
-    const res=await fetch('/api/v1/session/start',{method:'POST'});
+    const token=localStorage.getItem("cs_token");
+    const headers={"Content-Type":"application/json"};
+    if(token)headers["Authorization"]="Bearer "+token;
+    const res=await fetch("/api/v1/session/start",{method:"POST",headers});
     const data=await res.json();
     state.sessionId=data.session_id;
     sessionIdDisplay.textContent=data.session_id.substring(0,8)+'...';

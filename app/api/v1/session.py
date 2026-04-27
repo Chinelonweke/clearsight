@@ -1,19 +1,22 @@
 from __future__ import annotations
 """
 app/api/v1/session.py
-â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+─────────────────────────────────────────────────────────
 Session management REST endpoints.
 
-POST /api/v1/session/start       â€” create a new session, return session_id
-GET  /api/v1/session/{id}        â€” get session metadata + stage
-GET  /api/v1/session/{id}/history â€” get full chat history
-DELETE /api/v1/session/{id}      â€” close/delete a session
+POST /api/v1/session/start       — create a new session, return session_id
+GET  /api/v1/session/{id}        — get session metadata + stage
+GET  /api/v1/session/{id}/history — get full chat history
+DELETE /api/v1/session/{id}      — close/delete a session
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+import uuid
+
+from fastapi import APIRouter, Depends, HTTPException, Request
 from redis.asyncio import Redis
 
 from app.core.logger import get_logger
+from app.core.security import verify_token
 from app.db.redis_client import get_redis
 from app.services.analytics_service import track_event
 from app.services.session_service import SessionService
@@ -23,23 +26,45 @@ router = APIRouter()
 
 
 @router.post("/start")
-async def start_session():
-    """Create a new triage conversation session."""
-    import uuid
+async def start_session(request: Request):
+    """
+    Create a new triage conversation session.
+    If a valid patient JWT is provided, the session is linked to that patient.
+    """
     session_id = str(uuid.uuid4())
-    
+    patient_id = None
+
+    # Try to extract patient_id from JWT if provided
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        token = auth_header.split(" ")[1]
+        try:
+            payload = verify_token(token, expected_type="access")
+            if payload.get("role") == "patient":
+                patient_id = payload.get("sub")
+                logger.info(f"Session linked to patient | patient_id={patient_id} | session_id={session_id}")
+        except Exception as exc:
+            logger.debug(f"Session started without patient link | reason={exc}")
+
     # Try Redis — if unavailable, return session ID anyway
     try:
         from app.db.redis_client import get_redis_client
         redis = get_redis_client()
         svc = SessionService(redis)
         await svc.create_session()
-        await svc.update_metadata(session_id, {"session_id": session_id})
+        metadata = {"session_id": session_id}
+        if patient_id:
+            metadata["patient_id"] = patient_id
+        await svc.update_metadata(session_id, metadata)
     except Exception:
         pass  # Redis unavailable — session still works for WebSocket
-    
+
     await track_event("session_start", session_id=session_id)
-    return {"session_id": session_id, "ws_url": f"/ws/conversation/{session_id}"}
+    return {
+        "session_id": session_id,
+        "ws_url": f"/ws/conversation/{session_id}",
+        "patient_id": patient_id,
+    }
 
 
 @router.get("/{session_id}")
