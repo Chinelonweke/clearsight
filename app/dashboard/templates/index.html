@@ -277,7 +277,8 @@ async function startSession(){
 }
 function connectWebSocket(id){
   const proto=location.protocol==='https:'?'wss:':'ws:';
-  state.ws=new WebSocket(`${proto}//${location.host}/ws/conversation/${id}`);
+  const wsToken=localStorage.getItem('cs_token')||'';
+  state.ws=new WebSocket(`${proto}//${location.host}/ws/conversation/${id}?token=${wsToken}`);
   state.ws.onopen=()=>{
     setConnStatus('connected','Connected');
     state.retryCount=0;

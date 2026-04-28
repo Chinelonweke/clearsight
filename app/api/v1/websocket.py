@@ -196,7 +196,7 @@ class _InMemorySession:
 
 
 @router.websocket("/ws/conversation/{session_id}")
-async def conversation_endpoint(ws: WebSocket, session_id: str):
+async def conversation_endpoint(ws: WebSocket, session_id: str, token: str = ""):
     await ws.accept()
     logger.info(f"WebSocket connected | session={session_id}")
 
@@ -227,6 +227,17 @@ async def conversation_endpoint(ws: WebSocket, session_id: str):
     try:
         init_meta = await session_svc.get_metadata(session_id)
         patient_id_for_memory = init_meta.get("patient_id")
+
+        # Also try extracting from WebSocket query token directly
+        if not patient_id_for_memory and token:
+            try:
+                from app.core.security import verify_token
+                payload = verify_token(token, expected_type="access")
+                if payload.get("role") == "patient":
+                    patient_id_for_memory = payload.get("sub")
+                    logger.info(f"Patient ID from WS token | patient_id={patient_id_for_memory}")
+            except Exception:
+                pass
         if patient_id_for_memory:
             is_returning = await memory_svc.is_returning_patient(patient_id_for_memory)
             if is_returning:
