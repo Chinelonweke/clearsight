@@ -84,7 +84,7 @@ class MemoryService:
         try:
             results = self._client.search(
                 query=query,
-                user_id=patient_id,
+                filters={"user_id": patient_id},
                 limit=8,
             )
 
@@ -212,7 +212,7 @@ class MemoryService:
         try:
             results = self._client.search(
                 query="patient visit history",
-                user_id=patient_id,
+                filters={"user_id": patient_id},
                 limit=1,
             )
             return bool(results)
@@ -233,3 +233,5 @@ class MemoryService:
         except Exception as exc:
             logger.warning(f"Memory deletion failed: {exc}")
             return False
+
+
