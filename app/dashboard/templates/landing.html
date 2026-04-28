@@ -31,7 +31,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:20px 5%;display:flex
 .btn-ghost:hover{background:var(--teal-50);border-color:var(--teal-400)}
 .btn-primary{padding:9px 22px;border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;color:#fff;background:var(--teal-700);cursor:pointer;transition:all .2s}
 .btn-primary:hover{background:var(--teal-600);transform:translateY(-1px)}
-.hero{min-height:100vh;display:flex;align-items:center;padding:120px 5% 80px;position:relative;overflow:hidden;background:linear-gradient(135deg,var(--white) 0%,var(--teal-50) 50%,var(--warm-100) 100%)}
+.hero{min-height:100svh;display:flex;align-items:center;padding:80px 5% 40px;position:relative;overflow:hidden;background:linear-gradient(135deg,var(--white) 0%,var(--teal-50) 50%,var(--warm-100) 100%)}
 .hero-bg{position:absolute;inset:0;pointer-events:none}
 .hero-circle-1{position:absolute;top:-100px;right:-100px;width:600px;height:600px;border-radius:50%;background:radial-gradient(circle,rgba(34,197,176,.08) 0%,transparent 70%)}
 .hero-circle-2{position:absolute;bottom:-150px;left:-100px;width:500px;height:500px;border-radius:50%;background:radial-gradient(circle,rgba(22,122,109,.06) 0%,transparent 70%)}
@@ -150,7 +150,7 @@ footer p{font-size:13px;color:var(--text-muted)}
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes fadeUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
 @keyframes pulse-dot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.6;transform:scale(.85)}}
-@media(max-width:900px){
+@media(max-width:900px){.hero{min-height:auto;padding:100px 5% 40px;}.hero-title{font-size:36px;}.hero-subtitle{font-size:15px;margin-bottom:24px;}.hero-stats{margin-top:28px;padding-top:20px;}.hero-badge{margin-bottom:16px;}
   .hero-content{grid-template-columns:1fr;gap:40px}
   .hero-right{display:none}
   .features-grid{grid-template-columns:1fr 1fr}
