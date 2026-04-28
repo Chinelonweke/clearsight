@@ -532,6 +532,11 @@ async def conversation_endpoint(ws: WebSocket, session_id: str, token: str = "")
                                 )
                             )
                             patient = result_p.scalar_one_or_none()
+                        # Use patient's registered email if not in session
+                        if patient and patient.email and not session_meta.get("patient_email"):
+                            await session_svc.update_metadata(session_id, {"patient_email": patient.email})
+                            session_meta["patient_email"] = patient.email
+                            logger.info(f"Patient email from DB | email={patient.email}")
 
                         if not patient:
                             patient = PatientModel(
@@ -709,3 +714,4 @@ async def conversation_endpoint(ws: WebSocket, session_id: str, token: str = "")
         await track_event("session_end", session_id=session_id)
         await _send(ws, {"type": "session_closed", "outcome": "completed"})
         logger.info(f"WebSocket session finalised | session={session_id}")
+
