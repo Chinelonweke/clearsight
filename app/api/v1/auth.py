@@ -289,22 +289,35 @@ async def forgot_password(
         await db.commit()
 
         reset_url = f"https://clearsightclinic.online/reset-password?token={token}"
+
+        # HTML email with clickable button
+        reset_html = f"""<!DOCTYPE html>
+<html><body style="font-family:system-ui,sans-serif;background:#f4f4f5;padding:32px 16px;margin:0">
+<table width="100%" style="max-width:520px;margin:0 auto;background:#fff;border-radius:16px;padding:32px;box-shadow:0 2px 8px rgba(0,0,0,0.08)">
+<tr><td style="text-align:center;padding-bottom:24px">
+  <div style="background:#0a2e2a;border-radius:10px;width:48px;height:48px;display:inline-block;line-height:48px;margin-bottom:16px;font-size:24px">👁</div>
+  <h2 style="color:#0a2e2a;margin:0 0 8px;font-size:22px">Reset your password</h2>
+  <p style="color:#6b9490;margin:0;font-size:14px">Hello {patient.full_name}, click the button below to reset your ClearSight password.</p>
+</td></tr>
+<tr><td style="text-align:center;padding:8px 0 32px">
+  <a href="{reset_url}" style="background:#0a2e2a;color:#ffffff;padding:14px 36px;border-radius:10px;text-decoration:none;font-weight:600;font-size:15px;display:inline-block;letter-spacing:0.3px">Reset Password</a>
+</td></tr>
+<tr><td style="text-align:center;padding-top:24px;border-top:1px solid #f0ede8">
+  <p style="color:#6b9490;font-size:12px;margin:0 0 8px">This link expires in 1 hour.</p>
+  <p style="color:#6b9490;font-size:12px;margin:0 0 8px">If you didn't request this, you can safely ignore this email.</p>
+  <p style="color:#aaa;font-size:11px;margin:8px 0 0">If the button doesn't work, copy this link:<br>
+  <a href="{reset_url}" style="color:#167a6d;word-break:break-all">{reset_url}</a></p>
+</td></tr>
+</table>
+</body></html>"""
+
         try:
             from app.services.email_service import _send_email
             await _send_email(
                 to_email=patient.email,
                 subject="Reset your ClearSight password",
-                body=f"""Hello {patient.full_name},
-
-You requested a password reset for your ClearSight account.
-
-Click the link below to reset your password (expires in 1 hour):
-{reset_url}
-
-If you didn't request this, you can safely ignore this email.
-
-— ClearSight Eye Clinic
-"""
+                body=f"Hello {patient.full_name},\n\nReset your password here: {reset_url}\n\nExpires in 1 hour.\n\n— ClearSight Eye Clinic",
+                html=reset_html,
             )
         except Exception as exc:
             logger.warning(f"Failed to send reset email: {exc}")
