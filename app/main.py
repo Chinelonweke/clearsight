@@ -112,7 +112,7 @@ app.include_router(ws_router)
 
 
 # ── Health check ──────────────────────────────────────────────────────────────
-@app.get("/health", tags=["Health"])
+@app.api_route("/health", methods=["GET", "HEAD"], tags=["Health"])
 async def health_check():
     logger.debug("Health check called")
     return JSONResponse(
