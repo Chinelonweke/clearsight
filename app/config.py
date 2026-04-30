@@ -48,7 +48,7 @@ class Settings(BaseSettings):
     redis_password: str = ""
 
     # ── ChromaDB ────────────────────────────────────────────
-    chroma_host: str = "localhost"
+    chroma_host: str = "clearsight_chroma"
     chroma_port: int = 8001
     chroma_collection_name: str = "eye_conditions"
 
