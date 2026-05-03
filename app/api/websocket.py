@@ -602,7 +602,7 @@ async def conversation_endpoint(ws: WebSocket, session_id: str, token: str = "")
             try:
                 context_chunks = await rag_svc.retrieve(user_input, top_k=2)
                 reply_text = await llm_svc.chat_with_context(
-                    system=_get_triage_prompt(memory_context=patient_memory_context),
+                    system=_get_triage_prompt(memory_context=patient_memory_context if len(history) <= 2 else ""),
                     history=history,
                     context_chunks=context_chunks,
                 )
@@ -862,6 +862,14 @@ async def conversation_endpoint(ws: WebSocket, session_id: str, token: str = "")
                 user_msg_count = sum(1 for m in history if m["role"] == "user")
                 if user_msg_count > 0:
                     await _save_incomplete_session(patient_id_for_memory, history, meta)
+                    # Save partial memories to mem0 so returning patient context is preserved
+                    transcript = "\n".join(f"{m['role'].upper()}: {m['content']}" for m in history)
+                    await memory_svc.save_session_memories(
+                        patient_id=patient_id_for_memory,
+                        patient_name=meta.get("patient_name", "Patient"),
+                        transcript=transcript,
+                        is_partial=True,
+                    )
                     logger.info(
                         f"Incomplete session saved on disconnect | "
                         f"patient_id={patient_id_for_memory} | messages={user_msg_count}"
