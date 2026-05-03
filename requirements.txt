@@ -58,3 +58,4 @@ ruff==0.5.7
 resend>=1.0.0
 mem0ai
 
+sentry-sdk[fastapi]
