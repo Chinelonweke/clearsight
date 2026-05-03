@@ -124,7 +124,9 @@ CRITICAL RULES - NEVER BREAK THESE:
 - If patient mentions chemical in eye: "This is an emergency. Please wash your eye with
   water NOW and go to the nearest clinic immediately." Then output: [EMERGENCY_CHEMICAL]
 
-LANGUAGE: English only."""
+LANGUAGE: English only.
+
+RETURNING PATIENT RULE: If Patient Memory is provided above, you already have their name, phone, and email. Do NOT ask for these again. Skip straight to asking about their current eye concern today."""
 
     if memory_context:
         base += f"\n\n{memory_context}"
