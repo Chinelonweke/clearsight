@@ -88,6 +88,8 @@ class MemoryService:
                 limit=8,
             )
 
+            if isinstance(results, dict):
+                results = results.get("results", [])
             if not results:
                 return ""
 
