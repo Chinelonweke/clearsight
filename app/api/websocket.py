@@ -1,17 +1,19 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import asyncio
 import base64
+import json
 import re as _re
 import time
 import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from sqlalchemy import select
+from sqlalchemy import select, func
 
 from app.core.logger import get_logger
 from app.models.database import AsyncSessionLocal
+from app.models.session import ConversationSession
 from app.services.analytics_service import track_event
 from app.services.booking_service import BookingService
 from app.services.email_service import send_booking_confirmation
@@ -33,6 +35,7 @@ logger = get_logger(__name__)
 router = APIRouter(tags=["WebSocket"])
 
 _EMAIL_RE = _re.compile(r'[\w.\-+]+@[\w.\-]+\.[a-zA-Z]{2,}')
+_INCOMPLETE_SESSION_TTL = 1800  # 30 minutes in seconds
 
 _DIAGNOSIS_KEYWORDS = [
     "what is wrong", "what's wrong", "whats wrong",
@@ -52,7 +55,6 @@ def _is_diagnosis_question(text: str) -> bool:
 
 def _all_slots_filled(user_messages: list[str]) -> bool:
     text = " ".join(user_messages).lower()
-
     has_eye = any(w in text for w in [
         "left eye", "right eye", "both eyes", "left", "right", "both"
     ])
@@ -75,7 +77,6 @@ def _all_slots_filled(user_messages: list[str]) -> bool:
         "no change", "no vision", "fine", "normal", "same", "worse", "better",
         "yes", "no", "yeah", "nope", "none"
     ])
-
     filled = [has_eye, has_symptom, has_duration, has_pain_rating, has_vision_answer]
     logger.debug(
         f"Slot check | eye={has_eye} symptom={has_symptom} "
@@ -96,7 +97,7 @@ CLINIC INFORMATION (use ONLY these exact details - never invent any):
 - Opening hours: {settings.clinic_opening_hour}:00 to {settings.clinic_closing_hour}:00
 
 YOUR CONVERSATION GOALS (follow this order strictly):
-1. GREETING: Welcome the patient. Ask for their full name, age, phone number, gender and email address.
+1. GREETING: Welcome the patient. Ask for their full name, phone number and email address.
 2. SYMPTOM COLLECTION: Ask about their eye problem - one question at a time.
    Cover ALL of: which eye, what symptom, how long, pain level (0-10), family history,
    any vision changes, visited eye clinic before.
@@ -128,6 +129,81 @@ LANGUAGE: English only."""
     if memory_context:
         base += f"\n\n{memory_context}"
     return base
+
+
+async def _is_returning_patient_db(patient_id: str) -> bool:
+    """
+    Check if patient is returning using NeonDB as source of truth.
+    Senior dev pattern: ask YOUR OWN database, never an external service.
+    """
+    try:
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(
+                select(func.count()).where(
+                    ConversationSession.patient_id == patient_id
+                )
+            )
+            session_count = result.scalar() or 0
+            logger.debug(f"DB session count | patient_id={patient_id} | count={session_count}")
+            return session_count >= 1
+    except Exception as exc:
+        logger.warning(f"DB returning-patient check failed (non-fatal): {exc}")
+        return False
+
+
+async def _save_incomplete_session(patient_id: str, history: list, metadata: dict) -> None:
+    """
+    Save incomplete session to Redis with 30-minute TTL.
+    Called when patient disconnects before completing triage.
+    """
+    try:
+        from app.db.redis_client import get_redis_client
+        redis = get_redis_client()
+        if not redis:
+            return
+        key = f"incomplete_session:{patient_id}"
+        data = json.dumps({
+            "history": history,
+            "metadata": metadata,
+            "saved_at": datetime.now(timezone.utc).isoformat(),
+        })
+        await redis.setex(key, _INCOMPLETE_SESSION_TTL, data)
+        logger.info(f"Incomplete session saved | patient_id={patient_id} | TTL=30min")
+    except Exception as exc:
+        logger.warning(f"Failed to save incomplete session (non-fatal): {exc}")
+
+
+async def _load_incomplete_session(patient_id: str) -> dict | None:
+    """
+    Load incomplete session from Redis if it exists and is within 30 minutes.
+    Returns None if no incomplete session found.
+    """
+    try:
+        from app.db.redis_client import get_redis_client
+        redis = get_redis_client()
+        if not redis:
+            return None
+        key = f"incomplete_session:{patient_id}"
+        data = await redis.get(key)
+        if data:
+            parsed = json.loads(data)
+            logger.info(f"Incomplete session found | patient_id={patient_id}")
+            return parsed
+        return None
+    except Exception as exc:
+        logger.warning(f"Failed to load incomplete session (non-fatal): {exc}")
+        return None
+
+
+async def _delete_incomplete_session(patient_id: str) -> None:
+    """Delete incomplete session after patient resumes or declines."""
+    try:
+        from app.db.redis_client import get_redis_client
+        redis = get_redis_client()
+        if redis:
+            await redis.delete(f"incomplete_session:{patient_id}")
+    except Exception as exc:
+        logger.warning(f"Failed to delete incomplete session (non-fatal): {exc}")
 
 
 async def _send(ws: WebSocket, msg: dict) -> None:
@@ -196,7 +272,7 @@ class _InMemorySession:
 
 
 @router.websocket("/ws/conversation/{session_id}")
-async def conversation_endpoint(ws: WebSocket, session_id: str):
+async def conversation_endpoint(ws: WebSocket, session_id: str, token: str = ""):
     await ws.accept()
     logger.info(f"WebSocket connected | session={session_id}")
 
@@ -221,38 +297,89 @@ async def conversation_endpoint(ws: WebSocket, session_id: str):
 
     image_urls: list[str] = []
     triage_triggered = False
+    waiting_for_resume_answer = False
+    incomplete_session_data = None
 
-    # ── mem0: load patient memory context ─────────────────────────────────────
+    # ── Determine patient identity ─────────────────────────────────────────────
     patient_memory_context = ""
+    patient_id_for_memory = None
+    is_returning = False
+
     try:
         init_meta = await session_svc.get_metadata(session_id)
         patient_id_for_memory = init_meta.get("patient_id")
+
+        if not patient_id_for_memory and token:
+            try:
+                from app.core.security import verify_token
+                payload = verify_token(token, expected_type="access")
+                if payload.get("role") == "patient":
+                    patient_id_for_memory = payload.get("sub")
+                    logger.info(f"Patient ID from WS token | patient_id={patient_id_for_memory}")
+            except Exception:
+                pass
+
         if patient_id_for_memory:
-            is_returning = await memory_svc.is_returning_patient(patient_id_for_memory)
-            if is_returning:
+            # ✅ Step 1: Check for incomplete session (left mid-conversation)
+            incomplete_session_data = await _load_incomplete_session(patient_id_for_memory)
+
+            # ✅ Step 2: Check if returning patient via NeonDB (source of truth)
+            is_returning = await _is_returning_patient_db(patient_id_for_memory)
+            logger.info(
+                f"Patient check | patient_id={patient_id_for_memory} "
+                f"| is_returning={is_returning} "
+                f"| has_incomplete={incomplete_session_data is not None}"
+            )
+
+            # ✅ Save session to NeonDB so returning patient check works next time
+        if patient_id_for_memory:
+            try:
+                async with AsyncSessionLocal() as db:
+                    import uuid as _uuid
+                    new_session = ConversationSession(
+                        id=_uuid.UUID(session_id) if len(session_id) == 36 else _uuid.uuid4(),
+                        patient_id=_uuid.UUID(patient_id_for_memory),
+                        outcome="in_progress",
+                    )
+                    db.add(new_session)
+                    await db.commit()
+                    logger.info(f"Session saved to DB | patient_id={patient_id_for_memory}")
+            except Exception as exc:
+                logger.warning(f"Failed to save session to DB (non-fatal): {exc}")
+
+        if is_returning and not incomplete_session_data:
+                # Returning patient with no incomplete session — load mem0 context
                 patient_memory_context = await memory_svc.get_patient_context(
                     patient_id_for_memory
                 )
-                logger.info(
-                    f"Returning patient memory loaded | "
-                    f"patient_id={patient_id_for_memory}"
-                )
+                logger.info(f"Returning patient memory loaded | patient_id={patient_id_for_memory}")
+
     except Exception as exc:
         logger.warning(f"Memory load failed (non-fatal): {exc}")
 
     try:
         # -- Greeting ----------------------------------------------------------
-        if patient_memory_context:
+        if incomplete_session_data:
+            # Patient left mid-conversation — ask if they want to resume
+            waiting_for_resume_answer = True
+            greeting = (
+                "Welcome back! It looks like we were in the middle of your eye assessment. "
+                "Would you like to continue where we left off, or start a new assessment? "
+                "Reply 'continue' or 'new'."
+            )
+        elif is_returning:
+            # Returning patient who completed previous session
             greeting = (
                 "Welcome back to ClearSight! I remember you from your previous visit. "
                 "I'm here to help assess your eye concern today. "
                 "Could you tell me your full name and what's bothering you?"
             )
         else:
+            # Brand new patient
             greeting = (
                 "Hello! I'm ClearSight, your eye clinic assistant. "
                 "I'm here to help assess your eye concern and book you an appointment. "
-                "May I have your full name, phone number, age, gender and email address to get started?"
+                "May I have your full name, phone number and email address to get started?"
             )
 
         await session_svc.append_message(session_id, "assistant", greeting)
@@ -278,6 +405,54 @@ async def conversation_endpoint(ws: WebSocket, session_id: str):
 
             if msg_type == "end_session":
                 break
+
+            # -- Handle resume answer ------------------------------------------
+            if waiting_for_resume_answer:
+                user_input = data.get("text", "").strip().lower() if msg_type == "text" else ""
+                await session_svc.append_message(session_id, "user", user_input)
+
+                if any(w in user_input for w in ["continue", "yes", "yeah", "yep", "resume", "carry on"]):
+                    # Restore previous history
+                    waiting_for_resume_answer = False
+                    prev_history = incomplete_session_data.get("history", [])
+                    prev_meta = incomplete_session_data.get("metadata", {})
+
+                    for msg in prev_history:
+                        await session_svc.append_message(session_id, msg["role"], msg["content"])
+                    await session_svc.update_metadata(session_id, prev_meta)
+                    await _delete_incomplete_session(patient_id_for_memory)
+
+                    # Find last assistant message to show context
+                    last_ai_msg = next(
+                        (m["content"] for m in reversed(prev_history) if m["role"] == "assistant"),
+                        "Let me remind you where we were."
+                    )
+                    resume_msg = (
+                        f"Great! Let's continue. I was last asking: \"{last_ai_msg}\""
+                    )
+                    await session_svc.append_message(session_id, "assistant", resume_msg)
+                    await _send(ws, {
+                        "type": "response",
+                        "text": resume_msg,
+                        "audio": await _tts(tts_svc, resume_msg),
+                    })
+                    logger.info(f"Session resumed | patient_id={patient_id_for_memory}")
+                else:
+                    # Start fresh
+                    waiting_for_resume_answer = False
+                    await _delete_incomplete_session(patient_id_for_memory)
+                    fresh_greeting = (
+                        "No problem! Let's start fresh. "
+                        "May I have your full name, phone number and email address to get started?"
+                    )
+                    await session_svc.append_message(session_id, "assistant", fresh_greeting)
+                    await _send(ws, {
+                        "type": "response",
+                        "text": fresh_greeting,
+                        "audio": await _tts(tts_svc, fresh_greeting),
+                    })
+                    logger.info(f"Patient chose fresh start | patient_id={patient_id_for_memory}")
+                continue
 
             # -- Image ----------------------------------------------------------
             if msg_type == "image":
@@ -352,10 +527,8 @@ async def conversation_endpoint(ws: WebSocket, session_id: str):
             if not user_input:
                 continue
 
-            # -- Store message --------------------------------------------------
             await session_svc.append_message(session_id, "user", user_input)
 
-            # -- Extract and store patient email --------------------------------
             email_match = _EMAIL_RE.search(user_input)
             if email_match:
                 await session_svc.update_metadata(
@@ -363,7 +536,6 @@ async def conversation_endpoint(ws: WebSocket, session_id: str):
                 )
                 logger.debug(f"Patient email captured | email={email_match.group(0)}")
 
-            # -- Extract patient name -------------------------------------------
             import re as _re2
             name_match = _re2.search(
                 r'(?:full\s*name\s*[:\-]?\s*)([A-Za-z]+(?:\s+[A-Za-z]+)+)',
@@ -376,12 +548,10 @@ async def conversation_endpoint(ws: WebSocket, session_id: str):
                 )
                 logger.debug(f"Patient name captured | name={extracted_name}")
 
-            # -- Get history + meta ---------------------------------------------
             history = await session_svc.get_history(session_id)
             meta = await session_svc.get_metadata(session_id)
             turn_count = meta.get("message_count", 0)
 
-            # -- Diagnosis question interception --------------------------------
             if _is_diagnosis_question(user_input):
                 meta_stage = meta.get("stage", "")
                 if meta_stage in ("done", "booking"):
@@ -404,10 +574,8 @@ async def conversation_endpoint(ws: WebSocket, session_id: str):
                     "text": no_diagnosis_msg,
                     "audio": await _tts(tts_svc, no_diagnosis_msg),
                 })
-                logger.debug(f"Diagnosis question intercepted | session={session_id}")
                 continue
 
-            # -- Emergency fast-path --------------------------------------------
             from app.services.triage_service import EMERGENCY_KEYWORDS
             if any(w in user_input.lower() for w in EMERGENCY_KEYWORDS):
                 emergency_msg = (
@@ -429,7 +597,6 @@ async def conversation_endpoint(ws: WebSocket, session_id: str):
                 )
                 continue
 
-            # -- LLM response (with memory context) ----------------------------
             try:
                 context_chunks = await rag_svc.retrieve(user_input, top_k=2)
                 reply_text = await llm_svc.chat_with_context(
@@ -443,7 +610,6 @@ async def conversation_endpoint(ws: WebSocket, session_id: str):
                 logger.error(f"LLM error | session={session_id}: {exc}")
                 reply_text = "I'm having a technical difficulty. Could you please repeat that?"
 
-            # -- Slot filling gate ---------------------------------------------
             user_messages = [m["content"] for m in history if m["role"] == "user"]
             slots_ready = _all_slots_filled(user_messages)
 
@@ -470,7 +636,6 @@ async def conversation_endpoint(ws: WebSocket, session_id: str):
                     "audio": await _tts(tts_svc, reply_clean),
                 })
 
-            # -- Triage + booking pipeline --------------------------------------
             if triage_now and not triage_triggered:
                 triage_triggered = True
                 await session_svc.set_stage(session_id, "triage")
@@ -514,13 +679,12 @@ async def conversation_endpoint(ws: WebSocket, session_id: str):
                         patient_id = session_meta.get("patient_id")
                         patient = None
 
-                        if patient_id:
-                            result_p = await db.execute(
-                                select(PatientModel).where(
-                                    PatientModel.id == uuid.UUID(patient_id)
-                                )
-                            )
-                            patient = result_p.scalar_one_or_none()
+                        if patient and patient.email:
+                            if not session_meta.get("patient_email"):
+                               await session_svc.update_metadata(
+                                   session_id, {"patient_email": patient.email}
+                               )
+                               session_meta["patient_email"] = patient.email
 
                         if not patient:
                             patient = PatientModel(
@@ -643,7 +807,6 @@ async def conversation_endpoint(ws: WebSocket, session_id: str):
                         "audio": await _tts(tts_svc, booking_msg),
                     })
 
-                    # -- Persist intake form ------------------------------------
                     try:
                         async with AsyncSessionLocal() as db2:
                             intake_svc = IntakeService(llm=llm_svc, db=db2)
@@ -659,7 +822,6 @@ async def conversation_endpoint(ws: WebSocket, session_id: str):
                     except Exception as intake_exc:
                         logger.warning(f"Intake form error (non-fatal): {intake_exc}")
 
-                    # ── mem0: save session memories after successful triage ────
                     if patient_obj_id:
                         try:
                             transcript_full = await session_svc.get_history_text(session_id)
@@ -670,9 +832,7 @@ async def conversation_endpoint(ws: WebSocket, session_id: str):
                                 triage_result=triage_result,
                                 session_metadata=session_meta,
                             )
-                            logger.info(
-                                f"Session memories saved | patient_id={patient_obj_id}"
-                            )
+                            logger.info(f"Session memories saved | patient_id={patient_obj_id}")
                         except Exception as mem_exc:
                             logger.warning(f"Memory save failed (non-fatal): {mem_exc}")
 
@@ -691,6 +851,22 @@ async def conversation_endpoint(ws: WebSocket, session_id: str):
         logger.exception(f"Unexpected WebSocket error | session={session_id}: {exc}")
 
     finally:
+        # ── Save incomplete session if triage was never completed ──────────────
+        if patient_id_for_memory and not triage_triggered:
+            try:
+                history = await session_svc.get_history(session_id)
+                meta = await session_svc.get_metadata(session_id)
+                # Only save if patient actually said something (more than just the greeting)
+                user_msg_count = sum(1 for m in history if m["role"] == "user")
+                if user_msg_count > 0:
+                    await _save_incomplete_session(patient_id_for_memory, history, meta)
+                    logger.info(
+                        f"Incomplete session saved on disconnect | "
+                        f"patient_id={patient_id_for_memory} | messages={user_msg_count}"
+                    )
+            except Exception as exc:
+                logger.warning(f"Failed to save incomplete session on disconnect: {exc}")
+
         try:
             await session_svc.close_session(session_id, outcome="completed")
         except Exception as exc:
