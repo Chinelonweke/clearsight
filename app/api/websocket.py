@@ -53,6 +53,28 @@ def _is_diagnosis_question(text: str) -> bool:
     return any(kw in lower for kw in _DIAGNOSIS_KEYWORDS)
 
 
+
+# ── Prompt injection detection ─────────────────────────────────────────────
+_INJECTION_PATTERNS = [
+    "ignore previous instructions", "ignore all instructions",
+    "ignore your instructions", "forget your instructions",
+    "forget previous", "forget all previous", "you are now",
+    "act as", "pretend you are", "pretend to be",
+    "your real instructions", "new instructions",
+    "override instructions", "[system]", "<system>",
+    "system prompt", "you are a general", "you are an assistant",
+    "disregard", "do anything now", "dan mode", "jailbreak",
+    "bypass", "previous context", "list all patients",
+    "show me all patients", "reveal patient data",
+    "what did other patients",
+]
+
+
+def _is_prompt_injection(text: str) -> bool:
+    """Detect prompt injection attempts before they reach the LLM."""
+    lower = text.lower().strip()
+    return any(pattern in lower for pattern in _INJECTION_PATTERNS)
+
 def _all_slots_filled(user_messages: list[str]) -> bool:
     text = " ".join(user_messages).lower()
     has_eye = any(w in text for w in [
@@ -597,6 +619,24 @@ async def conversation_endpoint(ws: WebSocket, session_id: str, token: str = "")
                     metadata={"urgency_level": "emergency", "urgency_score": 10,
                               "trigger": "chemical_emergency_keyword"}
                 )
+                continue
+
+            # -- Prompt injection check ----------------------------------------
+            if _is_prompt_injection(user_input):
+                injection_msg = (
+                    "I can only help with eye clinic triage and appointment booking. "
+                    "Please describe your eye symptoms so I can assist you."
+                )
+                logger.warning(
+                    f"Prompt injection attempt | session={session_id} "
+                    f"| input={user_input[:100]}"
+                )
+                await session_svc.append_message(session_id, "assistant", injection_msg)
+                await _send(ws, {
+                    "type": "response",
+                    "text": injection_msg,
+                    "audio": await _tts(tts_svc, injection_msg),
+                })
                 continue
 
             try:
