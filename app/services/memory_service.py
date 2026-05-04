@@ -208,19 +208,11 @@ class MemoryService:
             # Build memory messages
             messages = [
                 {
-                    "role": "system",
-                    "content": (
-                        f"Patient {patient_name} had a {session_type} triage session "
-                        f"at ClearSight Eye Clinic. "
-                        "Extract and remember: full name, phone number, email, "
-                        "symptoms, duration, pain level, eye affected, "
-                        "family history, vision changes, urgency level, "
-                        "and any other clinically relevant facts."
-                    )
-                },
-                {
                     "role": "user",
-                    "content": transcript[:4000],
+                    "content": (
+                        f"Patient {patient_name} visited ClearSight Eye Clinic "
+                        f"({session_type} session). Transcript:\n\n{transcript[:4000]}"
+                    )
                 }
             ]
 

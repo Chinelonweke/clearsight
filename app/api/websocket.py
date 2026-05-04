@@ -868,7 +868,7 @@ async def conversation_endpoint(ws: WebSocket, session_id: str, token: str = "")
                         try:
                             transcript_full = await session_svc.get_history_text(session_id)
                             await memory_svc.save_session_memories(
-                                patient_id=patient_obj_id,
+                                patient_id=patient_id_for_memory or patient_obj_id,
                                 patient_name=session_meta.get("patient_name", "Patient"),
                                 transcript=transcript_full,
                                 triage_result=triage_result,
