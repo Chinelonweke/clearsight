@@ -407,12 +407,29 @@ async def conversation_endpoint(ws: WebSocket, session_id: str, token: str = "")
                 "May I have your full name, phone number and email address to get started?"
             )
 
-        await session_svc.append_message(session_id, "assistant", greeting)
-        await _send(ws, {
-            "type": "response",
-            "text": greeting,
-            "audio": await _tts(tts_svc, greeting),
-        })
+        # Only send greeting if this is a fresh session (no prior history)
+        existing_history = await session_svc.get_history(session_id)
+        already_active = len([m for m in existing_history if m["role"] == "user"]) > 0
+
+        if already_active:
+            # Reconnect — don't repeat the greeting, just resume silently
+            last_ai_msg = next(
+                (m["content"] for m in reversed(existing_history) if m["role"] == "assistant"),
+                None
+            )
+            if last_ai_msg:
+                await _send(ws, {
+                    "type": "response",
+                    "text": last_ai_msg,
+                    "audio": await _tts(tts_svc, last_ai_msg),
+                })
+        else:
+            await session_svc.append_message(session_id, "assistant", greeting)
+            await _send(ws, {
+                "type": "response",
+                "text": greeting,
+                "audio": await _tts(tts_svc, greeting),
+            })
 
         # -- Main loop ----------------------------------------------------------
         while True:
