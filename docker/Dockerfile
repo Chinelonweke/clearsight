@@ -3,7 +3,8 @@ FROM python:3.11-slim AS builder
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update --fix-missing || (sleep 10 && apt-get update --fix-missing) && \
+    apt-get install -y --no-install-recommends \
     build-essential \
     libpq-dev \
     ffmpeg \
@@ -18,7 +19,8 @@ FROM python:3.11-slim AS runtime
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update --fix-missing || (sleep 10 && apt-get update --fix-missing) && \
+    apt-get install -y --no-install-recommends \
     libpq5 \
     ffmpeg \
     curl \
