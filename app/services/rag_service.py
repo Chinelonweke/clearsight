@@ -57,8 +57,7 @@ class RAGService:
     """
 
     def __init__(self) -> None:
-        from app.rag.chroma_client import get_collection as get_chroma_collection
-        self._collection = get_chroma_collection()
+        self._collection = None  # Lazy-initialised on first retrieve() call
         logger.info("RAGService initialised.")
 
     async def retrieve(
@@ -79,6 +78,11 @@ class RAGService:
         if not query or not query.strip():
             return []
 
+        # Lazy-init: await the async get_collection on first call
+        if self._collection is None:
+            from app.rag.chroma_client import get_collection as _get_col
+            self._collection = _get_col()
+
         try:
             # Embed in thread executor - fastembed is synchronous
             loop = asyncio.get_running_loop()
@@ -86,9 +90,9 @@ class RAGService:
                 None, _embed_query, query.strip()
             )
 
-            results = self._collection.query(
+            results = await self._collection.query(
                 query_embeddings=[query_embedding],
-                n_results=min(top_k, self._collection.count() or 1),
+                n_results=top_k,
                 include=["documents"],
             )
 

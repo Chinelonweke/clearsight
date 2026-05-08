@@ -360,12 +360,13 @@ async def conversation_endpoint(ws: WebSocket, session_id: str, token: str = "")
             try:
                 async with AsyncSessionLocal() as db:
                     import uuid as _uuid
-                    new_session = ConversationSession(
+                    from sqlalchemy.dialects.postgresql import insert as pg_insert
+                    stmt = pg_insert(ConversationSession).values(
                         id=_uuid.UUID(session_id) if len(session_id) == 36 else _uuid.uuid4(),
                         patient_id=_uuid.UUID(patient_id_for_memory),
                         outcome="in_progress",
-                    )
-                    db.add(new_session)
+                    ).on_conflict_do_nothing(index_elements=["id"])
+                    await db.execute(stmt)
                     await db.commit()
                     logger.info(f"Session saved to DB | patient_id={patient_id_for_memory}")
             except Exception as exc:
