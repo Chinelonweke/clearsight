@@ -34,6 +34,39 @@ LOG_DIR.mkdir(exist_ok=True)
 _loguru_logger.remove()
 
 
+
+import re as _re
+
+# ── PII scrubber ───────────────────────────────────────────────────────────────
+# Masks patient PII before any log record is written to any sink.
+# Healthcare standard: logs must never contain names, emails, or phone numbers.
+_PII_PATTERNS = [
+    # Email addresses → j***@***.***
+    (_re.compile(r'[\w.\-+]+@[\w.\-]+\.[a-zA-Z]{2,}'),
+     lambda m: m.group(0)[0] + '***@***.***'),
+    # email=value patterns
+    (_re.compile(r'(email[=:][\s]*)([^\s|,}\]]+)', _re.IGNORECASE),
+     lambda m: m.group(1) + '***@***.***'),
+    # name=Full Name patterns
+    (_re.compile(r'(name[=:][\s]*)([A-Za-z]+(?:\s+[A-Za-z]+)+)', _re.IGNORECASE),
+     lambda m: m.group(1) + m.group(2)[0] + '***'),
+    # Nigerian phone numbers
+    (_re.compile(r'(\+?234|0)[789][01]\d{8}'),
+     lambda m: m.group(0)[:4] + '****' + m.group(0)[-3:]),
+    # preview= content (session message previews)
+    (_re.compile(r'(preview=["])[^"]{20,}(["])'),
+     lambda m: m.group(1) + '[REDACTED]' + m.group(2)),
+]
+
+
+def _scrub_pii(record: dict) -> bool:
+    """Loguru filter: mask PII in message before writing to any sink."""
+    msg = record["message"]
+    for pattern, replacement in _PII_PATTERNS:
+        msg = pattern.sub(replacement, msg)
+    record["message"] = msg
+    return True
+
 def _configure_logger() -> None:
     """
     Configure Loguru with two sinks:
@@ -61,6 +94,7 @@ def _configure_logger() -> None:
             " ─ <level>{message}</level>"
         ),
         level=settings.log_level,
+        filter=_scrub_pii,
         enqueue=True,           # async-safe: log calls do not block the event loop
         backtrace=True,         # full stack trace on exceptions
         diagnose=settings.is_development,  # variable values in tracebacks (dev only)
@@ -76,6 +110,7 @@ def _configure_logger() -> None:
         compression="gz",           # gzip old files to save disk
         format="{time} | {level} | {name}:{function}:{line} | {message}",
         level="INFO",
+        filter=_scrub_pii,
         enqueue=True,
         serialize=True,             # emit JSON-lines
         backtrace=True,
@@ -122,5 +157,8 @@ class _InterceptHandler(logging.Handler):
 
 # Redirect all stdlib loggers through Loguru
 logging.basicConfig(handlers=[_InterceptHandler()], level=0, force=True)
-for _lib in ("uvicorn", "uvicorn.error", "uvicorn.access", "sqlalchemy.engine", "fastapi"):
+logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
+logging.getLogger("sqlalchemy.engine.Engine").setLevel(logging.WARNING)
+
+for _lib in ("uvicorn", "uvicorn.error", "uvicorn.access", "fastapi"):
     logging.getLogger(_lib).handlers = [_InterceptHandler()]

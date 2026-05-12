@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     app_name: str = "ClearSight Eye Clinic"
     app_version: str = "1.0.0"
     debug: bool = True
-    log_level: str = "DEBUG"
+    log_level: str = "INFO"
 
     # ── Security ────────────────────────────────────────────
     jwt_secret_key: str
